@@ -118,10 +118,69 @@ can call the bridge synchronously with `menuCode` already attached.
    the bridge should write a recognizable `createdBy` (e.g. `HCBRIDGE`) for
    auditability.
 
-## 6. Recommended build order
+## 6. UPDATE — the official door exists: ESO FS API (OpenAPI v1.0.0)
 
-1. ESB Core: fill `menuCode` for all menus.
-2. Middleware "menu sync": `ms_menu` → generate app menu with `menu_code`.
-3. Middleware "open table": app table-select → `tr_saleshead` + `tr_tableusage` (yellow). Verify color on POS.
-4. Middleware "save order": app checkout → `tr_salesmenu` + head totals (red). Verify items appear identically in the POS order screen.
-5. Only then decide: keep direct-write, or switch transport to the ESO queue / official API.
+The ESO FS OpenAPI spec (`ESO-FS-OpenAPI-build.yaml`) confirms ESB's official
+REST API for exactly this use case. **Use it instead of direct DB writes.**
+
+- Base URLs: production `https://eso-api.esb.co.id`, staging
+  `https://stg7.esb.co.id/api-ezo/web`
+- Auth: `Authorization: Bearer <API key>` (issued via ESB Core / ESB PIC)
+- Two context headers on most calls: `Data-Branch` (branch code) and
+  **`Data-TransID` (encrypted POS transaction ID)**
+
+### Endpoints
+
+| Endpoint | Use |
+|---|---|
+| `GET /fsv1/setting/branch` | Branch config: features (callBill/callWaiter/atCashier), theme, payment mapping, `transactionMode: fullService` |
+| `GET /fsv1/menu` | Full catalog: categories → menus with **`menuID` and `menuCode`**, prices, sold-out flags, `menuExtras`, `menuPackages` (option groups with `menuGroupID`, min/maxQty) |
+| `POST /v1/user/auth` | Register customer identity (name, email, phone) → token |
+| `POST /fsv1/order/calculate-total` | Price a cart server-side (items by `menuID` + extras + packages) |
+| `POST /fsv2/order` | **Save Order** — body is an array of items: `{ID, menuID, qty, extras:[{menuExtraID,qty}], packages:[{menuID,qty,menuGroupID}], notes, promotionDetailID, promotionVoucherCode, rewardType}`. Async: returns `webSocketID` |
+| `GET /fsv2/order/websocket-status` | Poll the async save result |
+| `GET /fsv1/order` | View Order — returns the live transaction incl. `tableID`, `tableName`, `paxTotal`, `visitPurposeID`, items, totals |
+| `POST /fsv1/payment` + `/fsv1/payment/validate` | Online payment (`paymentMethodID` e.g. `ovo`, amount from calculate-total, returnUrl) |
+| `/fsv1/order/apply-promotion`, `validate-promotion`, `call-bill`, `call-waiter`, `/fsv1/bill` | Promotions, bill call, waiter call |
+
+### The key constraint: `Data-TransID`
+
+ESO FS **cannot open a table**. Every call is scoped to an *existing* POS
+transaction via `Data-TransID` (encrypted salesNum). The yellow "open table"
+state is created by the POS (cashier opens the table; `tr_saleshead` even has a
+`printEsoFsQr` column — the POS prints/shows a QR per open table that embeds
+this encrypted TransID). So the realistic bridge flow is:
+
+```
+1. Cashier opens table on POS  → tr_saleshead row (YELLOW) + ESO FS QR with Data-TransID
+2. Customer orders in Hong Chiang app at that table
+3. Middleware: POST /fsv2/order (Data-Branch, Data-TransID, items by menuID)
+   → POS inserts tr_salesmenu itself (RED), with all tax/promo math done by ESB
+4. Payment: at cashier (ESB side) or POST /fsv1/payment for online methods
+```
+
+The middleware needs a **table → Data-TransID registry**: capture the QR / its
+encoded TransID when a table is opened (scan, or read `printEsoFsQr` flow), or
+ask the ESB PIC how partners are expected to obtain TransIDs for integrations.
+This is the one open question for ESB.
+
+### Mapping with menuCode — confirmed end-to-end
+
+`GET /fsv1/menu` returns both `menuID` and `menuCode`. So the sync is:
+
+> Middleware pulls `/fsv1/menu` → generates the Hong Chiang app menu keyed by
+> `menuCode` → at order time resolves `menuCode → menuID` from the same pull →
+> `POST /fsv2/order` with `menuID`. ESB Core stays the single menu master; no
+> DB access needed at all.
+
+## 7. Recommended build order (revised)
+
+1. ESB Core: fill `menuCode` for all menus; get ESO FS **API key** + branch
+   code from ESB PIC (ask also: how to obtain `Data-TransID` programmatically).
+2. Middleware "menu sync": `GET /fsv1/menu` → app menu (menuCode embedded).
+3. Middleware "save order": app checkout → `POST /fsv2/order` → poll
+   websocket-status → verify table turns RED and items match on the POS.
+4. Payment phase: `calculate-total` → `payment` (online) or cashier settle.
+5. Keep the direct-DB plan (section 4) only as a fallback/read-only monitor —
+   reading `tr_saleshead`/`ms_table` locally is still handy to *detect* yellow
+   tables and their salesNum without ESB's help.
