@@ -1,0 +1,320 @@
+{
+  "store": {
+    "name": "HONG CHIANG DINING",
+    "tagline": "Robot Delivery · Smart Kitchen",
+    "hours": "Open today, 10:00-22:00",
+    "banner": "新菜上市 · 歡迎光臨 — Yuk Cobain Sekarang!"
+  },
+  "categories": [
+    { "id": 1, "name": "Favorit Banyak Orang" },
+    { "id": 2, "name": "Paket Keluarga" },
+    { "id": 3, "name": "Paket Berdua" },
+    { "id": 6, "name": "每日特餐 Daily Special" },
+    { "id": 4, "name": "單點主食 Mains" },
+    { "id": 5, "name": "小菜 Sides" },
+    { "id": 7, "name": "飲料 Drinks" }
+  ],
+  "meals": [
+    {
+      "meal_id": 13,
+      "meal_name": "雞肉菇菇咖哩飯 Chicken Mushroom Curry Rice",
+      "short_name": "Chicken Curry Rice",
+      "price": 43182,
+      "category_id": 1,
+      "emoji": "🍛",
+      "color1": "#8C2B2B",
+      "color2": "#C4541F",
+      "desc": "1 Curry Rice + 1 Crispy Chicken + 1 Iced Tea Jumbo",
+      "option_groups": [
+        {
+          "name": "Rice 米飯",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "White Rice 白飯", "price": 0 },
+            { "name": "Brown Rice 糙米飯", "price": 3000 }
+          ]
+        },
+        {
+          "name": "Spice Level 辣度",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Not Spicy 不辣", "price": 0 },
+            { "name": "Level 1 小辣", "price": 0 },
+            { "name": "Level 2 中辣", "price": 0 },
+            { "name": "Level 3 大辣", "price": 0 }
+          ]
+        },
+        {
+          "name": "Drink 飲料",
+          "required": false,
+          "max": 1,
+          "options": [
+            { "name": "Es Teh Manis Jumbo", "price": 0 },
+            { "name": "Winter Melon Tea 冬瓜茶", "price": 5000 }
+          ]
+        }
+      ]
+    },
+    {
+      "meal_id": 21,
+      "meal_name": "三杯雞飯 Three-Cup Chicken Rice",
+      "short_name": "Three-Cup Chicken",
+      "price": 48182,
+      "category_id": 1,
+      "emoji": "🍗",
+      "color1": "#5B3A1E",
+      "color2": "#A05C2C",
+      "desc": "Basil, sesame oil & soy glazed chicken with rice"
+    },
+    {
+      "meal_id": 22,
+      "meal_name": "炒空心菜 Cah Kangkung Bakar",
+      "short_name": "Cah Kangkung",
+      "price": 18182,
+      "category_id": 1,
+      "emoji": "🥬",
+      "color1": "#1E5B2E",
+      "color2": "#4CA05C",
+      "desc": "Wok-fired water spinach, garlic & chili"
+    },
+    {
+      "meal_id": 31,
+      "meal_name": "全家福大拼盤 Family Feast 1",
+      "short_name": "Family Feast 1",
+      "price": 299091,
+      "category_id": 2,
+      "emoji": "🍱",
+      "color1": "#7A1F1F",
+      "color2": "#B33A3A",
+      "desc": "4 Rice + Whole Chicken + 2 Sides + 4 Drinks (4-6 persons)",
+      "option_groups": [
+        {
+          "name": "Side Dish A 配菜一",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Cah Kangkung", "price": 0 },
+            { "name": "Golden Tofu 黃金豆腐", "price": 0 }
+          ]
+        },
+        {
+          "name": "Side Dish B 配菜二",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Century Egg 皮蛋豆腐", "price": 0 },
+            { "name": "Pickled Cucumber 涼拌小黃瓜", "price": 0 }
+          ]
+        },
+        {
+          "name": "Drinks 飲料 (choose up to 4)",
+          "required": true,
+          "max": 4,
+          "options": [
+            { "name": "Iced Tea 冰紅茶", "price": 0 },
+            { "name": "Winter Melon Tea 冬瓜茶", "price": 0 },
+            { "name": "Lemon Tea 檸檬茶", "price": 0 }
+          ]
+        }
+      ]
+    },
+    {
+      "meal_id": 32,
+      "meal_name": "闔家歡宴 Family Feast 2",
+      "short_name": "Family Feast 2",
+      "price": 579091,
+      "category_id": 2,
+      "emoji": "🥘",
+      "color1": "#6B1D1D",
+      "color2": "#C0392B",
+      "desc": "8 Rice + Roast Duck + Fish + 4 Sides + 8 Drinks (8-12 persons)"
+    },
+    {
+      "meal_id": 41,
+      "meal_name": "雙人雞腿餐 Couple Set — Double Chicken",
+      "short_name": "Couple Set 1",
+      "price": 107727,
+      "category_id": 3,
+      "emoji": "🍜",
+      "color1": "#3E5B1E",
+      "color2": "#7CA04C",
+      "desc": "2 Rice + 2 Chicken Leg + 2 Sides + 2 Drinks"
+    },
+    {
+      "meal_id": 42,
+      "meal_name": "雙人魚香餐 Couple Set — Fish & Skin",
+      "short_name": "Couple Set 2",
+      "price": 75909,
+      "category_id": 3,
+      "emoji": "🐟",
+      "color1": "#1E3E5B",
+      "color2": "#4C7CA0",
+      "desc": "2 Rice + Fried Fish + Crispy Skin + 2 Drinks"
+    },
+    {
+      "meal_id": 61,
+      "meal_name": "今日特餐 Chef's Daily Special",
+      "short_name": "Daily Special",
+      "price": 39091,
+      "category_id": 6,
+      "emoji": "⭐",
+      "color1": "#8C6B2B",
+      "color2": "#C4A41F",
+      "desc": "Ask the robot! Rotating special of the day"
+    },
+    {
+      "meal_id": 62,
+      "meal_name": "滷肉飯 Braised Pork Rice",
+      "short_name": "Braised Pork Rice",
+      "price": 35909,
+      "category_id": 6,
+      "emoji": "🍚",
+      "color1": "#5B2B1E",
+      "color2": "#9C5A3C",
+      "desc": "Taiwan classic minced pork over rice + egg"
+    },
+    {
+      "meal_id": 51,
+      "meal_name": "牛肉麵 Beef Noodle Soup",
+      "short_name": "Beef Noodles",
+      "price": 57727,
+      "category_id": 4,
+      "emoji": "🍲",
+      "color1": "#6B3A1D",
+      "color2": "#A0662C",
+      "desc": "Slow-braised beef shank, rich broth, handmade noodles",
+      "option_groups": [
+        {
+          "name": "Noodle 麵條",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Thin Noodle 細麵", "price": 0 },
+            { "name": "Wide Noodle 寬麵", "price": 0 }
+          ]
+        },
+        {
+          "name": "Extra 加料",
+          "required": false,
+          "max": 2,
+          "options": [
+            { "name": "Extra Beef 加牛肉", "price": 15000 },
+            { "name": "Egg 滷蛋", "price": 5000 }
+          ]
+        }
+      ]
+    },
+    {
+      "meal_id": 52,
+      "meal_name": "脆皮烤鴨飯 Crispy Duck Rice",
+      "short_name": "Crispy Duck Rice",
+      "price": 72727,
+      "category_id": 4,
+      "emoji": "🦆",
+      "color1": "#4A1D6B",
+      "color2": "#7C2CA0",
+      "desc": "Half crispy duck, plum sauce, rice & greens"
+    },
+    {
+      "meal_id": 53,
+      "meal_name": "宮保雞丁飯 Kung Pao Chicken Rice",
+      "short_name": "Kung Pao Chicken",
+      "price": 45455,
+      "category_id": 4,
+      "emoji": "🥡",
+      "color1": "#8C2B4A",
+      "color2": "#C41F5A",
+      "desc": "Wok-tossed chicken, dried chili, peanuts"
+    },
+    {
+      "meal_id": 71,
+      "meal_name": "黃金豆腐 Golden Tofu",
+      "short_name": "Golden Tofu",
+      "price": 15455,
+      "category_id": 5,
+      "emoji": "🧈",
+      "color1": "#8C7B2B",
+      "color2": "#C4B41F",
+      "desc": "Crispy egg tofu with salted egg dust"
+    },
+    {
+      "meal_id": 72,
+      "meal_name": "皮蛋豆腐 Century Egg Tofu",
+      "short_name": "Century Egg Tofu",
+      "price": 13636,
+      "category_id": 5,
+      "emoji": "🥚",
+      "color1": "#2B4A3E",
+      "color2": "#1F8C6B",
+      "desc": "Chilled silken tofu, century egg, bonito"
+    },
+    {
+      "meal_id": 73,
+      "meal_name": "涼拌小黃瓜 Pickled Cucumber",
+      "short_name": "Pickled Cucumber",
+      "price": 11818,
+      "category_id": 5,
+      "emoji": "🥒",
+      "color1": "#3E6B1D",
+      "color2": "#66A02C",
+      "desc": "Smashed cucumber, garlic & sesame"
+    },
+    {
+      "meal_id": 81,
+      "meal_name": "珍珠奶茶 Bubble Milk Tea",
+      "short_name": "Bubble Milk Tea",
+      "price": 22727,
+      "category_id": 7,
+      "emoji": "🧋",
+      "color1": "#5B4A3E",
+      "color2": "#9C8270",
+      "desc": "Classic boba with brown sugar pearls",
+      "option_groups": [
+        {
+          "name": "Sugar 甜度",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Normal 正常糖", "price": 0 },
+            { "name": "Less 半糖", "price": 0 },
+            { "name": "No Sugar 無糖", "price": 0 }
+          ]
+        },
+        {
+          "name": "Ice 冰塊",
+          "required": true,
+          "max": 1,
+          "options": [
+            { "name": "Normal Ice 正常冰", "price": 0 },
+            { "name": "Less Ice 少冰", "price": 0 },
+            { "name": "No Ice 去冰", "price": 0 }
+          ]
+        }
+      ]
+    },
+    {
+      "meal_id": 82,
+      "meal_name": "冬瓜茶 Winter Melon Tea",
+      "short_name": "Winter Melon Tea",
+      "price": 13636,
+      "category_id": 7,
+      "emoji": "🥤",
+      "color1": "#2B5B4A",
+      "color2": "#1FA47C",
+      "desc": "House-brewed, lightly sweet"
+    },
+    {
+      "meal_id": 83,
+      "meal_name": "Es Teh Manis Jumbo",
+      "short_name": "Es Teh Jumbo",
+      "price": 9091,
+      "category_id": 7,
+      "emoji": "🧃",
+      "color1": "#8C4A2B",
+      "color2": "#C47B1F",
+      "desc": "Jumbo sweet iced tea"
+    }
+  ]
+}

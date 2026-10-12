@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - KDS_MODE=${KDS_MODE:-mock}
+      - KDS_BASE_URL=${KDS_BASE_URL:-http://192.168.1.50:5500/kds}
+      - CURRENCY=${CURRENCY:-Rp}

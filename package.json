@@ -1,0 +1,14 @@
+{
+  "name": "hongchiang-ordering-system",
+  "version": "1.0.0",
+  "description": "ESB-style self-ordering web app backed by the Hong-Chiang KDS System API (v2.0.1)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "KDS_MODE=mock node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
