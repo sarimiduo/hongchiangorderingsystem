@@ -360,3 +360,12 @@ input, textarea { font: inherit; }
 .mt8 { margin-top: 8px; } .mt16 { margin-top: 16px; }
 .spin { display: inline-block; width: 18px; height: 18px; border: 2.5px solid #eee; border-top-color: var(--orange); border-radius: 50%; animation: rot .8s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
+
+/* ---- "show the cashier" card (status page) ---- */
+.cashier-card { background: var(--orange); color: #fff; border-radius: var(--radius); padding: 22px 16px 18px; text-align: center; box-shadow: var(--shadow); }
+.cashier-card .cc-label { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; opacity: .9; }
+.cashier-card .cc-big { font-size: clamp(64px, 26vw, 128px); font-weight: 900; line-height: 1.05; letter-spacing: -1px; word-break: break-all; margin: 6px 0; }
+.cashier-card .cc-sub { font-size: 14px; font-weight: 700; opacity: .95; }
+.cashier-card .cc-total { font-size: 24px; font-weight: 800; margin-top: 10px; }
+.cashier-card .cc-msg { font-size: 14px; font-weight: 600; margin-top: 10px; background: rgba(255,255,255,.18); border-radius: 10px; padding: 9px 10px; }
+.cashier-card.done { background: var(--green); }

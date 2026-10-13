@@ -1,6 +1,6 @@
 'use strict';
 /* Hong Chiang Ordering — ESB-style self-ordering SPA.
- * Journey: home → (dine-in: table + pax | takeout) → menu → cart → payment → status.
+ * Journey: home → (dine-in: table + pax | takeout) → menu → cart → Save Order → status (pay at cashier).
  * Backed by the Hong-Chiang KDS API via /api/kds/* (tables/search, orders/details,
  * walkIns/get, reservations/update, walkIns/update) + the app's own menu/checkout.
  */
@@ -62,7 +62,7 @@ function cartTotal() { return cartSubtotal() + serviceFee(); }
 /* ------------------------------------------------------------------ router */
 const routes = {
   '': renderHome, home: renderHome, tables: renderTables, menu: renderMenu,
-  cart: renderCart, payment: renderPayment, status: renderStatus, takeout: renderTakeout,
+  cart: renderCart, status: renderStatus, takeout: renderTakeout,
   bridge: renderBridge,
 };
 function go(r) { location.hash = '#/' + r; }
@@ -384,8 +384,7 @@ function renderCart() {
         <div class="pd-row"><span class="lbl">Other fees (10%)</span><span>${fmt(serviceFee())}</span></div>
         <div class="pd-row total"><span>Total</span><span class="val">${fmt(cartTotal())}</span></div>
       </div>
-    </div>
-      <button class="btn-ghost" id="to-pay">Pay Online First (optional)</button>
+      <p class="muted center" style="font-size:12.5px">Payment is at the cashier after you save the order.</p>
     </div>
     <div class="footbar">
       <span class="tp"><span class="l1">Total Payment</span><br><span class="l2">${fmt(cartTotal())}</span></span>
@@ -408,11 +407,11 @@ function renderCart() {
       mealSheet(mealById(i.meal_id), i);
     }
   };
-  document.getElementById('to-pay').onclick = () => go('payment');
 }
 
-/* Save Order — the main journey: order goes to the kitchen AND is pushed to
- * the middleware -> local agent -> ESB POS. Payment happens at the cashier. */
+/* Save Order — the only customer action: the order goes to the kitchen (KDS)
+ * AND is pushed to midhong -> local agent -> ESB POS (table turns red).
+ * Only the ESB cashier can finish it; the status page waits for that. */
 async function saveOrder() {
   const btn = document.getElementById('save-order');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -431,139 +430,36 @@ async function saveOrder() {
   if (!out.status) { toast('Save failed: ' + out.msg); btn.disabled = false; btn.textContent = 'Save Order'; return; }
   S.lastOrder = {
     order_no: out.data.order_no, reservation_id: out.data.reservation_id,
-    mode: S.session.mode, table: S.session.table, paid: false,
-    payment_method: '00', pay_at_cashier: true, total: cartTotal(),
+    mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(),
   };
   S.cart = []; save();
   go('status');
 }
 
-/* ----------------------------------------------------------------- payment */
-function renderPayment() {
-  if (S.cart.length === 0) { go('menu'); return; }
-  const dinein = S.session.mode === 'dinein';
-  const pm = S.config.payment_methods; // {'00':'Cash',...}
-  const online = [['QR', 'QRIS (simulated)', '01'], ['04', pm['04'] + ' 銀聯', '04']];
-  const cashier = [['00', pm['00'] + ' 現金', '00'], ['01', pm['01'] + ' 刷卡', '01'], ['02', pm['02'] + ' 紅利', '02'], ['03', pm['03'] + ' 分期', '03']];
-  let payType = 'online', method = online[0];
-
-  function paint() {
-    const methods = payType === 'online' ? online : cashier;
-    if (!methods.includes(method)) method = methods[0];
-    $app.innerHTML = `
-      <div class="topbar"><button class="back" id="pback">←</button><h1 style="text-align:center">Payment</h1><span style="width:36px"></span></div>
-      <div class="wrap">
-        <div class="ordertype"><span>Order Type</span><b>${dinein ? 'Dine In' : 'Takeout'} ✓</b></div>
-        <div>
-          <h3 style="font-size:16px;font-weight:800">Customer Information</h3>
-          <div class="flabel">Help us serve you better<span class="req">*</span></div>
-          <div class="finput"><span class="fi">👤</span><input id="f-name" placeholder="Enter your name" value="${esc(S.session.custName || '')}"></div>
-          <div class="flabel">Phone Number (for upcoming promos)</div>
-          <div class="finput"><span class="fi">📞</span><input id="f-phone" placeholder="Phone Number" value="${esc(S.session.custPhone || '')}"></div>
-          <div class="flabel">Send Receipt to Email</div>
-          <div class="finput"><span class="fi">✉️</span><input id="f-email" placeholder="Email"></div>
-          ${dinein ? `
-          <div class="flabel">Table Number<span class="req">*</span></div>
-          <div class="finput"><span class="fi">🍽️</span><input id="f-table" value="${esc(S.session.table ? S.session.table.name : '')}" readonly></div>` : ''}
-        </div>
-        <div class="promo-row"><span>🎟️ Add Promos or Vouchers</span><span>›</span></div>
-        <div>
-          <h3 style="font-size:16px;font-weight:800;margin-bottom:10px">Payment Method</h3>
-          <div class="paytype">
-            <button id="pt-online" class="${payType === 'online' ? 'sel' : ''}">💳 Online Payment</button>
-            <button id="pt-cashier" class="${payType === 'cashier' ? 'sel' : ''}">💵 Pay at Cashier</button>
-          </div>
-          <h3 style="font-size:15px;font-weight:800;margin:16px 0 10px">Complete Payment</h3>
-          <div id="methods">
-            ${methods.map(m => `
-              <div class="method ${m === method ? 'sel' : ''}" data-code="${m[0]}">
-                <span class="mi">${m[0] === 'QR' ? '🔳' : m[2] === '00' ? '💵' : m[2] === '01' ? '💳' : m[2] === '02' ? '🎁' : m[2] === '03' ? '📆' : '🏦'}</span>
-                <span class="mn">${esc(m[1])}</span><span class="radio"></span>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="footbar">
-        <span class="tp"><span class="l1">Payment Total</span><br><span class="l2">${fmt(cartTotal())}</span></span>
-        <button class="btn-primary" id="do-pay">Pay</button>
-      </div>`;
-
-    document.getElementById('pback').onclick = () => go('cart');
-    document.getElementById('pt-online').onclick = () => { payType = 'online'; paint(); };
-    document.getElementById('pt-cashier').onclick = () => { payType = 'cashier'; paint(); };
-    document.getElementById('methods').onclick = e => {
-      const el = e.target.closest('.method'); if (!el) return;
-      method = (payType === 'online' ? online : cashier).find(m => m[0] === el.dataset.code);
-      paint();
-    };
-    document.getElementById('do-pay').onclick = doPay;
-  }
-
-  async function doPay() {
-    const name = document.getElementById('f-name').value.trim();
-    if (!name) { toast('Please enter your name'); return; }
-    S.session.custName = name;
-    S.session.custPhone = document.getElementById('f-phone').value.trim();
-    save();
-    const btn = document.getElementById('do-pay');
-    btn.disabled = true; btn.textContent = 'Processing…';
-
-    // 1) create the order (simulation of the POS -> KDS flow)
-    const out = await api('checkout', {
-      type: S.session.mode, table_id: S.session.table ? S.session.table.id : null,
-      table_name: S.session.table ? S.session.table.name : null,
-      guest_count: S.session.pax ? parseInt(S.session.pax) || 2 : 2,
-      customer: { name, phone: S.session.custPhone },
-      note: S.session.note || '',
-      meals: S.cart.map(i => ({
-        meal_id: i.meal_id, quantity: i.qty, options_price: i.options_price,
-        remarks: [Object.entries(i.options || {}).map(([g, a]) => a.join(', ')).filter(Boolean).join(' / '), i.remarks].filter(Boolean).join(' · '),
-      })),
-    });
-    if (!out.status) { toast('Checkout failed: ' + out.msg); btn.disabled = false; btn.textContent = 'Pay'; return; }
-
-    S.lastOrder = {
-      order_no: out.data.order_no, reservation_id: out.data.reservation_id,
-      mode: S.session.mode, table: S.session.table, paid: false,
-      payment_method: method[2], pay_at_cashier: payType === 'cashier',
-      total: cartTotal(),
-    };
-    S.cart = []; save();
-
-    // 2) online payment settles immediately through the KDS status endpoints
-    if (payType === 'online') {
-      const pay = await api('pay', S.session.mode === 'dinein'
-        ? { mode: 'dinein', reservation_id: S.lastOrder.reservation_id, payment_method: method[2] }
-        : { mode: 'walkin', order_no: S.lastOrder.order_no, payment_method: method[2] });
-      S.lastOrder.paid = !!pay.status;
-      save();
-    }
-    go('status');
-  }
-  paint();
-}
-
 /* ------------------------------------------------------------------ status */
+/* The "show the cashier" screen: table number (or takeout order no) rendered
+ * huge, the bridge timeline underneath, kitchen status from the KDS. Flips to
+ * FINISHED / PAID when midhong reports that the ESB cashier settled the bill. */
 async function renderStatus() {
   const o = S.lastOrder;
   if (!o) { go('home'); return; }
+  const dinein = o.mode === 'dinein' && o.table;
   $app.innerHTML = `
     <div class="topbar"><button class="back" onclick="location.hash='#/home'">←</button><h1 style="text-align:center">Order Status</h1><span style="width:36px"></span></div>
-    <div class="success-hero">
-      <div class="big">${o.paid ? '✅' : '🧾'}</div>
-      <h2>${o.paid ? 'Payment Successful!' : 'Order Placed!'}</h2>
-      <p>${o.paid ? 'Your order has been paid & sent to the kitchen.' : o.pay_at_cashier ? 'Please pay at the cashier with your order number.' : 'Your order is being processed.'}</p>
-    </div>
     <div class="wrap">
-      <div class="ordno">Order No: ${esc(o.order_no)}</div>
-      ${o.mode === 'dinein' && o.table ? `<div class="banner-card"><div class="tno">Table Number: <b>${esc(o.table.name)}</b></div></div>` : ''}
-      <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">ESB POS Bridge <span class="muted">(middleware → SQL agent)</span></h3>
+      <div class="cashier-card" id="cashier-card">
+        <div class="cc-label">${dinein ? 'Table 桌號' : 'Takeout 外帶'}</div>
+        <div class="cc-big">${esc(dinein ? o.table.name : o.order_no)}</div>
+        ${dinein ? `<div class="cc-sub">Order ${esc(o.order_no)}</div>` : ''}
+        <div class="cc-total">${fmt(o.total)}</div>
+        <div class="cc-msg" id="cc-msg">Please pay at the cashier — show this screen 🙏</div>
+      </div>
+      <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">ESB POS Bridge <span class="muted">(midhong → SQL agent)</span></h3>
         <div id="bridge-live"><div class="center mt8"><span class="spin"></span></div></div>
       </div>
       <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">Kitchen Status <span class="muted">(live from KDS)</span></h3>
         <div id="meals-live"><div class="center mt8"><span class="spin"></span></div></div>
       </div>
-      <div id="pay-slot"></div>
       <button class="btn-ghost" onclick="location.hash='#/menu'">Order More</button>
       <button class="btn-ghost" onclick="sessionStorage.clear();location.hash='#/home'">New Session</button>
     </div>`;
@@ -576,18 +472,26 @@ async function renderStatus() {
     ['waiting_cashier', '🧑‍💼', 'Waiting for cashier on ESB POS'],
     ['settled', '✅', 'Finished — bill settled on ESB POS'],
   ];
+  function markPaid(st) {
+    const card = document.getElementById('cashier-card'), msg = document.getElementById('cc-msg');
+    if (!card || card.classList.contains('done')) return;
+    card.classList.add('done');
+    msg.textContent = `FINISHED · PAID ✅  payment ${st.payment_method || ''}${st.billNum ? ' · bill ' + st.billNum : ''}`;
+    o.paid = true; save();
+  }
   async function pollBridge() {
     const box = document.getElementById('bridge-live');
     if (!box) return;
     let st = null;
     try { st = await api('bridge/status?order_no=' + encodeURIComponent(o.order_no)); } catch (e) { /* keep spinner */ }
-    if (!st || !st.stage) { box.innerHTML = '<p class="muted">No bridge record for this order.</p>'; return; }
+    if (!st || !st.stage) { box.innerHTML = `<p class="muted">${st && st.msg ? esc(st.msg) : 'No bridge record for this order.'}</p>`; return; }
+    if (st.stage === 'settled') markPaid(st);
     const reached = i => BRIDGE_STAGES.findIndex(s => s[0] === st.stage) >= i || ['voided', 'error'].includes(st.stage);
     box.innerHTML = `
       ${BRIDGE_STAGES.map((s, i) => `
         <div class="bstep ${reached(i) ? 'on' : ''}">
           <span class="bic">${s[1]}</span>
-          <span class="btxt">${s[2]}${s[0] === 'table_opened' && st.salesNum && reached(i) ? `<br><span class="muted">salesNum ${esc(st.salesNum)}</span>` : ''}${s[0] === 'settled' && reached(5) && st.payment_method ? `<br><span class="muted">payment ${esc(st.payment_method)}${st.billNum ? ' · bill ' + esc(st.billNum) : ''}</span>` : ''}</span>
+          <span class="btxt">${s[2]}${s[0] === 'queued' && st.pending_push ? '<br><span class="muted">⏳ middleware not reachable yet — retrying</span>' : ''}${s[0] === 'table_opened' && st.salesNum && reached(i) ? `<br><span class="muted">salesNum ${esc(st.salesNum)}</span>` : ''}${s[0] === 'settled' && reached(5) && st.payment_method ? `<br><span class="muted">payment ${esc(st.payment_method)}${st.billNum ? ' · bill ' + esc(st.billNum) : ''}</span>` : ''}</span>
           <span class="bdot">${reached(i) ? '✔' : ''}</span>
         </div>`).join('')}
       ${st.stage === 'voided' ? '<p class="muted mt8">⚠️ Voided by the cashier on ESB POS.</p>' : ''}
@@ -609,19 +513,6 @@ async function renderStatus() {
         </div>`).join('')}
       <div class="pd-row total" style="margin-top:8px"><span>Total</span><span class="val">${fmt(Number(ord.total_price))}</span></div>
       <div class="pd-row"><span class="lbl">Order status</span><span><span class="badge ${ord.status === 'paid' ? 'PAID' : 'PREPARING'}">${esc(ord.status)}</span></span></div>`;
-    const slot = document.getElementById('pay-slot');
-    if (slot) {
-      if (ord.status !== 'paid' && o.pay_at_cashier) {
-        slot.innerHTML = `<button class="btn-primary" id="paid-cashier">I have paid at the cashier</button>`;
-        document.getElementById('paid-cashier').onclick = async () => {
-          const pay = await api('pay', o.mode === 'dinein'
-            ? { mode: 'dinein', reservation_id: o.reservation_id, payment_method: o.payment_method }
-            : { mode: 'walkin', order_no: o.order_no, payment_method: o.payment_method });
-          if (pay.status) { o.paid = true; save(); toast('Payment recorded'); poll(); }
-          else toast('KDS error: ' + pay.msg);
-        };
-      } else slot.innerHTML = '';
-    }
   }
   poll();
   S.statusTimer = setInterval(poll, 5000);
@@ -700,13 +591,9 @@ async function renderTakeout() {
           <div class="meal-status"><span>${m.quantity}× ${esc(m.meal_name)}</span>
           <span class="badge ${esc(m.status)}">${esc(m.status)}</span></div>`).join('')}
         <div class="pd-row total"><span>Total</span><span class="val">${fmt(Number(ord.total_price))}</span></div>
-        ${ord.status !== 'paid' ? `<button class="btn-primary mt8" id="tk-pay" style="margin-top:10px">Mark as Paid (Cash)</button>` : '<p class="center muted mt8">Paid ✓</p>'}
+        <div class="pd-row"><span class="lbl">Status</span><span class="badge ${ord.status === 'paid' ? 'PAID' : 'PREPARING'}">${esc(ord.status)}</span></div>
+        <p class="center muted mt8">Settled by the cashier on ESB POS</p>
       </div>`;
-    const payBtn = document.getElementById('tk-pay');
-    if (payBtn) payBtn.onclick = async () => {
-      const r = await api('pay', { mode: 'walkin', order_no: ord.order_no, payment_method: '00' });
-      if (r.status) { toast('Marked as paid'); renderTakeout(); } else toast('Error: ' + r.msg);
-    };
   };
 }
 
