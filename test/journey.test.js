@@ -90,3 +90,29 @@ test('midhong: menu sync is served on /api/bridge/menu; monitor page is served o
   assert.match(page.headers.get('content-type'), /text\/html/);
   assert.match(await page.text(), /Bridge Monitor/);
 });
+
+test('midhong: callback to a dead apphong is non-blocking, counted, and marked not ok', async () => {
+  const bridge = require('../server/bridge');
+  const cmd = bridge.findCommand('IDEM1');
+  const ok = await T.mid.sendCallback(cmd, [0, 0], 'http://127.0.0.1:1');   // 3 fast attempts to a closed port
+  assert.equal(ok, false);
+  assert.equal(cmd.callback.ok, false);
+  assert.equal(cmd.callback.attempts, 3);
+  assert.equal(cmd.callback.inflight, false);
+  assert.match(cmd.callback.last_error, /ECONNREFUSED|fetch failed|unreachable/);
+  assert.ok(cmd.events.some(e => /Callback to apphong failed/.test(e.detail)));
+});
+
+test('midhong: report settled returns immediately even when apphong is down', async () => {
+  const ctx = { order_no: 'DEAD1', reservation_id: null, mode: 'walkin', table_name: null, pax: 1, customer: {}, note: '',
+    items: [{ menu_code: '', menu_name: 'Tea', qty: 1, price: 5000, notes: '' }], total: 5000 };
+  const a = await post(`${T.MID}/api/bridge/orders`, ctx, 't-bridge');
+  const t0 = Date.now();
+  const r = await post(`${T.MID}/api/bridge/agent/report`, { id: a.body.data.id, stage: 'settled', payment_method_name: 'Cash' }, 't-agent');
+  assert.equal(r.body.status, true);
+  assert.ok(Date.now() - t0 < 1000, 'agent report must not wait for the callback retries');
+  const st = await j(`${T.MID}/api/bridge/status?order_no=DEAD1`);
+  assert.equal(st.body.stage, 'settled');
+  assert.equal(st.body.callback.ok, false);           // apphong is not running yet
+  assert.ok(st.body.callback.attempts >= 1);
+});

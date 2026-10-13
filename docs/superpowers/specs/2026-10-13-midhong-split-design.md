@@ -140,10 +140,10 @@ so the whole loop demos on the VPS with no agent connected.
 
 - midhong down at checkout → outbox retry (§3); customer sees "queued".
 - apphong down at settle → callback retried 6× with backoff 2, 4, 8, 16, 32,
-  60 s; result recorded in `cmd.callback`. Recovery: apphong's status proxy,
-  when it sees `stage === 'settled'` and `callback.ok === false`, performs
-  the KDS update itself (same code path as the callback handler) — so the
-  customer page polling is enough to heal a missed callback.
+  60 s; result recorded in `cmd.callback`. Recovery: midhong re-sends every
+  unacknowledged callback (`stage==='settled' && !callback.ok`) every 60 s
+  until apphong answers 2xx — no apphong-side healing, no ack endpoint, works
+  with no customer page open.
 - Duplicate push / duplicate callback → no-ops (idempotent on `order_no`;
   the KDS update on a completed reservation is harmless).
 - Bad token on either side → 401 with `{status:false, msg:'unauthorized'}`

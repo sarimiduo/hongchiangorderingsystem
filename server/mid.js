@@ -25,7 +25,59 @@ const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN;
 const MONITOR_HTML = path.join(__dirname, '..', 'public-mid', 'index.html');
 
 /* ------------------------------------------------ settlement callback → apphong */
-// Added in Task 5 (sendCallback + sweeper).
+const CALLBACK_DELAYS_MS = [2000, 4000, 8000, 16000, 32000, 60000];
+const SWEEP_MS = 60000;
+
+/**
+ * Tell apphong the cashier settled this order. Retries with the given delays
+ * (attempts = delays.length + 1). Never throws; records cmd.callback.
+ */
+async function sendCallback(cmd, delaysMs = CALLBACK_DELAYS_MS, appUrl = APP_URL) {
+  cmd.callback = cmd.callback || { ok: false, attempts: 0, last_error: null, inflight: false };
+  if (cmd.callback.inflight) return false;
+  cmd.callback.inflight = true;
+  const body = {
+    order_no: cmd.order_no, reservation_id: cmd.reservation_id, mode: cmd.mode,
+    payment_method: cmd.payment_method || '00', salesNum: cmd.salesNum, billNum: cmd.billNum,
+  };
+  try {
+    for (let i = 0; ; i++) {
+      cmd.callback.attempts++;
+      try {
+        const res = await fetch(appUrl + '/api/bridge/callback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + BRIDGE_TOKEN },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(5000),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status === false) throw new Error(`apphong ${res.status}: ${data.msg || ''}`);
+        cmd.callback.ok = true;
+        cmd.callback.last_error = null;
+        bridge.addEvent(cmd, 'settled', `Callback delivered to apphong (payment ${body.payment_method}${data.msg && data.msg !== 'success' ? ', ' + data.msg : ''})`);
+        return true;
+      } catch (e) {
+        cmd.callback.last_error = e.message;
+        if (i >= delaysMs.length) {
+          bridge.addEvent(cmd, 'settled', `Callback to apphong failed after ${cmd.callback.attempts} attempt(s): ${e.message} — will retry every ${SWEEP_MS / 1000}s`);
+          return false;
+        }
+        // unref: a pending backoff must not hold the process open (the listening server does that)
+        await new Promise(r => setTimeout(r, delaysMs[i]).unref());
+      }
+    }
+  } finally {
+    cmd.callback.inflight = false;
+  }
+}
+bridge.state.onSettled = cmd => sendCallback(cmd);
+
+// Re-send callbacks apphong never acknowledged (it was down, or misconfigured).
+setInterval(() => {
+  for (const c of bridge.state.commands) {
+    if (c.stage === 'settled' && c.callback && !c.callback.ok && !c.callback.inflight) sendCallback(c, []);
+  }
+}, SWEEP_MS).unref();
 
 /* --------------------------------------------------------------------- routes */
 function validOrder(b) {
@@ -133,4 +185,4 @@ function start(port = MID_PORT) {
 
 if (require.main === module) start();
 
-module.exports = { start, server };
+module.exports = { start, server, sendCallback };
