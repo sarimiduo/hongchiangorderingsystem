@@ -6,6 +6,22 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
+      - HOST=0.0.0.0
       - KDS_MODE=${KDS_MODE:-mock}
       - KDS_BASE_URL=${KDS_BASE_URL:-http://192.168.1.50:5500/kds}
       - CURRENCY=${CURRENCY:-Rp}
+      - BRIDGE_URL=http://mid:3100
+      - BRIDGE_TOKEN=${BRIDGE_TOKEN:-change-me-bridge-token}
+  mid:
+    build: .
+    command: ["node", "server/mid.js"]
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      - MID_PORT=3100
+      - HOST=0.0.0.0
+      - APP_URL=http://app:3000
+      - BRIDGE_TOKEN=${BRIDGE_TOKEN:-change-me-bridge-token}
+      - AGENT_TOKEN=${AGENT_TOKEN:-change-me-agent-token}
+      - BRIDGE_SIM=${BRIDGE_SIM:-1}

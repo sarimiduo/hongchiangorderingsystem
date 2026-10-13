@@ -1,7 +1,7 @@
 [webapp]
-; the middleware webapp (this repo). Use your deployed URL in production.
-url = http://127.0.0.1:3000
-; must match AGENT_TOKEN in the webapp .env
+; the midhong bridge middleware (server/mid.js). Production: https://midhong.berkatselalu.com
+url = http://127.0.0.1:3100
+; must match AGENT_TOKEN in the VPS .env (read by midhong)
 token = change-me-agent-token
 
 [mysql]

@@ -18,8 +18,8 @@ database, and reports settlement back.
 2. `pip install pymysql`
 3. Copy this `agent/` folder to the mini-PC, e.g. `C:\hcbridge\`.
 4. Edit `agent.ini`:
-   - `[webapp] url` — your deployed app (https://apphong.berkatselalu.com)
-   - `[webapp] token` — must equal `AGENT_TOKEN` in the webapp `.env` on the VPS
+   - `[webapp] url` — the bridge middleware (https://midhong.berkatselalu.com)
+   - `[webapp] token` — must equal `AGENT_TOKEN` in the VPS `.env` (midhong reads it)
    - `[mysql]` — the local ESB POS database credentials
    - `[agent] cashier_username` — a REAL username from `ms_posuser`
 5. Sanity checks, in order:
@@ -32,14 +32,15 @@ database, and reports settlement back.
    → action: start `run_agent.bat` in `C:\hcbridge\` (same pattern as the
    Posmid agent), or use NSSM to install it as a service.
 
-On the VPS, set the matching token in `/var/www/hongchiangorderingsystem/.env`:
+On the VPS, set the matching token in `/var/www/hongchiangorderingsystem/.env`
+(read by the `hongchiang-mid` unit):
 
 ```
 AGENT_TOKEN=<same value as agent.ini>
 BRIDGE_SIM=0     # optional: disable the demo simulator once the real agent is live
 ```
 
-then `sudo systemctl restart hongchiang`.
+then `sudo systemctl restart hongchiang-mid`.
 
 ## What it writes (and never writes)
 

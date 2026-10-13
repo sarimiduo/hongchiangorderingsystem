@@ -11,47 +11,64 @@ and keep it updated when you change behavior.
 Customer (Hong Chiang web app, ESB-Order-style UI)
   └─ fills order → Save Order
        ├─ order goes to the Hong Chiang KDS (kitchen display)
-       └─ order is queued in the BRIDGE middleware (same webapp process)
+       └─ apphong POSTs the order to the MIDHONG bridge service (server/mid.js, midhong.berkatselalu.com)
             └─ mini-PC AGENT (Python, at the branch) polls the queue over HTTPS
                  ├─ TXN A: opens the table in the ESB POS DB  → floor plan YELLOW
                  ├─ TXN B: writes the order lines + totals    → floor plan RED
                  └─ watches the sale until the human cashier settles it on ESB POS
-                      └─ reports "settled" → webapp feeds back into the KDS
+                      └─ reports "settled" → midhong calls apphong back → apphong feeds the KDS
                            → app shows order FINISHED/PAID, table freed
 ```
+
+Stage 1 is cashier-only: no in-app payment; only the ESB cashier finishes an order.
 
 ## Repo map
 
 ```
-server/index.js        zero-dependency Node HTTP server: static SPA + /api
+server/index.js        apphong: zero-dependency Node HTTP server, static SPA + /api; HTTP client of midhong
+server/mid.js          midhong entrypoint: order intake, agent API, settlement callback + sweeper, monitor page
+server/bridge.js       bridge core (loaded only by mid.js): command queue, stages, simulator, ESB menu store
+server/bridge-client.js apphong → midhong client: pushOrder (outbox retry), status, overview, menu (30 s cache)
+server/http-util.js    send/readBody/bearerOk/requireEnv shared by both entrypoints
+server/dev.js          runs both processes locally
 server/kds-mock.js     faithful mock of the Hong-Chiang KDS API + createOrder() sim hook
-server/bridge.js       bridge middleware: command queue, agent API, simulator, KDS feedback
 server/data/menu.json  local menu catalog (fallback; ESB-synced menu overrides it)
 public/                SPA (index.html, css/app.css, js/app.js — hash router, no build step)
+public-mid/            midhong's standalone monitor page (served on midhong "/")
+test/                  node:test suites; test/journey.test.js boots both servers in-process
 agent/hc_bridge_agent.py  the mini-PC agent (PyMySQL). agent.ini is GITIGNORED (secrets)
 agent/README.md        agent setup (Windows Task Scheduler / Linux)
 hermes/bot.js          Discord ⇄ agent bridge (this is how you are being driven)
-deploy/                nginx + systemd units
+deploy/                nginx + systemd units (hongchiang = apphong, hongchiang-mid = midhong)
 docs/                  deep docs: DEPLOYMENT, VPS_GIT, HERMES_DISCORD,
                        ESB_BRIDGE_ANALYSIS, HC_ESB_SQL_BRIDGE_DESIGN
+docs/superpowers/      design specs + implementation plans (midhong split)
 VPS_SETUP.md           full VPS provisioning runbook
 ```
 
 ## Running locally
 
 ```bash
-node server/index.js          # http://localhost:3000 — no npm install, no build
+node server/dev.js            # both: app http://localhost:3000, bridge monitor http://localhost:3100
+# or separately: node server/mid.js  +  node server/index.js
+npm test                      # node --test test/ — boots both servers in-process, runs the journey
 ```
 
-Env (`.env.example`): `PORT`, `KDS_MODE=mock|real`, `KDS_BASE_URL`, `CURRENCY`,
-`AGENT_TOKEN` (shared secret for `/api/bridge/agent/*`), `BRIDGE_SIM=1|0`,
-`BRIDGE_SIM_SETTLE_SECONDS`. With `BRIDGE_SIM=1` (default) and no live agent,
-a built-in simulator advances bridge stages so the whole journey demos
-standalone. A live agent heartbeat (last 30s) suppresses the simulator.
+Env (`.env.example`): apphong — `PORT`, `KDS_MODE=mock|real`, `KDS_BASE_URL`,
+`CURRENCY`, `BRIDGE_URL`, `BRIDGE_TOKEN`; midhong — `MID_PORT`, `APP_URL`,
+`BRIDGE_TOKEN`, `AGENT_TOKEN` (shared secret for `/api/bridge/agent/*`),
+`BRIDGE_SIM=1|0`, `BRIDGE_SIM_SETTLE_SECONDS`. Both entrypoints refuse to start
+without their required vars (`index.js`: BRIDGE_URL+BRIDGE_TOKEN; `mid.js`:
+APP_URL+BRIDGE_TOKEN+AGENT_TOKEN); `dev.js` fills dev defaults. With
+`BRIDGE_SIM=1` (default) and no live agent, midhong's simulator advances bridge
+stages so the whole journey demos standalone. A live agent heartbeat (last 30s)
+suppresses the simulator. Both bind `127.0.0.1` (`HOST` overrides, Docker only).
 
-Deployed at: `https://apphong.berkatselalu.com` (VPS path
-`/var/www/hongchiangorderingsystem`, systemd unit `hongchiang`, nginx reverse
-proxy, certbot SSL). Deploy = `git pull` + `systemctl restart hongchiang`.
+Deployed at: `https://apphong.berkatselalu.com` (apphong, unit `hongchiang`,
+port 3000) and `https://midhong.berkatselalu.com` (midhong, unit
+`hongchiang-mid`, port 3100) — VPS path `/var/www/hongchiangorderingsystem`,
+nginx reverse proxies, certbot SSL. Deploy = `git pull` +
+`systemctl restart hongchiang hongchiang-mid`.
 
 ## Fact sheet 1 — Hong-Chiang KDS API v2.0.1
 
@@ -125,24 +142,39 @@ written by the bridge — the cashier applies them at settle; the watcher reads
 final amounts regardless. (For bridge-side promos you'd need vendor
 SalesHead::calculateArrayHeadTotal — not available yet.)
 
-## Fact sheet 4 — bridge contract (webapp ⇄ agent)
+## Fact sheet 4 — bridge contract (apphong ⇄ midhong ⇄ agent)
 
 Stages: `queued → picked_up → table_opened → order_saved → waiting_cashier →
 settled | voided | error`. Commands kept in-memory (last 200) in
-server/bridge.js.
+server/bridge.js, which only midhong loads.
 
-Agent API (header `Authorization: Bearer <AGENT_TOKEN>`):
+apphong ⇄ midhong (header `Authorization: Bearer <BRIDGE_TOKEN>` both ways):
+- `POST {BRIDGE_URL}/api/bridge/orders` — apphong pushes
+  `{order_no, reservation_id, mode, table_name, pax, customer, note, items, total}`;
+  idempotent on `order_no` (`data.existing:true` on a re-push); `400 bad payload`
+  without order_no/mode/items. apphong keeps an outbox and retries when midhong
+  is down (`bridge_pushed:false`, status `pending_push:true`).
+- `POST {APP_URL}/api/bridge/callback` — midhong tells apphong the cashier
+  settled: `{order_no, reservation_id, mode, payment_method, salesNum, billNum}`;
+  apphong closes the KDS order and answers `{status:true, msg:'success'}` — or
+  `msg:'kds_unknown_order'` (also status:true, so midhong stops retrying).
+  midhong retries 6× (2,4,8,16,32,60 s) and a 60 s sweeper re-sends anything
+  still unacknowledged; result in `cmd.callback {ok, attempts, last_error}`.
+- `GET /api/bridge/status?order_no=…`, `GET /api/bridge/overview`,
+  `GET /api/bridge/menu` — public reads on midhong; apphong proxies the first
+  two for the SPA (503 `bridge unreachable` with `commands: []` when down) and
+  uses the third as its catalog (30 s cache).
+
+Agent API — base is **midhong** (header `Authorization: Bearer <AGENT_TOKEN>`):
 - `GET  /api/bridge/agent/commands` → queued commands
   `{id, order_no, mode(dinein|walkin), table_name, pax, customer, note, items:[{menu_code, menu_name, qty, price, notes}], total}`
 - `POST /api/bridge/agent/report` `{id, stage, salesNum?, billNum?, payment_method_name?, detail?, error?}`
-  — on `settled` the webapp maps the ESB payment name → KDS enum
-  (cash/tunai→00, unionpay→04, install→03, bonus→02, else 01) and calls the
-  KDS update endpoint automatically.
+  — on `settled` midhong maps the ESB payment name → KDS enum
+  (cash/tunai→00, unionpay→04, install→03, bonus→02, else 01) and sends the
+  callback to apphong, which calls the KDS update endpoint.
 - `POST /api/bridge/agent/menu` — menu sync payload `{categories, meals}`;
   when present it REPLACES the app's catalog (`/api/menu` source:"esb").
 - `POST /api/bridge/agent/heartbeat`
-
-Public (frontend): `GET /api/bridge/status?order_no=…`, `GET /api/bridge/overview`.
 
 Agent golden rules (inherited from the production Posmid replication middleware):
 1. MySQL **5.7-safe SQL only** (no CTEs/window functions). MariaDB test rigs
@@ -159,9 +191,11 @@ Agent golden rules (inherited from the production Posmid replication middleware)
 ## Testing conventions (do this before any push)
 
 - `node --check` every touched JS file; `python3 -m py_compile` the agent.
-- Full local test loop: start `node server/index.js`, curl `/api/checkout`,
-  watch `/api/bridge/status` (simulator) — or load an ESB dump into local
-  MariaDB and run the real agent (`--probe`, `--sync-menu`, `--run`).
+- `npm test` (`node --test test/`) boots apphong + midhong in-process
+  (`test/journey.test.js`) and runs the whole journey; keep it green before
+  any push. Manual loop: `node server/dev.js`, curl `/api/checkout`, watch
+  `/api/bridge/status` (simulator) — or load an ESB dump into local MariaDB and
+  run the real agent (`--probe`, `--sync-menu`, `--run`).
 - UI changes: drive with Playwright headless (chromium at
   `/opt/pw-browsers/chromium` in cloud sessions) and screenshot.
 - SECRETS: `agent/agent.ini`, `.env`, `hermes/.env` are gitignored — never
@@ -176,9 +210,15 @@ Done and verified end-to-end: app UI (ESB-Order-style journey), KDS mock+proxy,
 bridge queue + simulator + monitor page, agent TXN A/B with real tax math,
 settlement watcher, KDS feedback, menu sync from ESB, deployment assets, Hermes
 Discord bridge. The mini-PC agent package was handed to the owner with a filled
-agent.ini (token matches the VPS `.env` AGENT_TOKEN).
+agent.ini (token matches the VPS `.env` AGENT_TOKEN). Done: midhong split
+(stage 1, cashier-only) — bridge runs as its own service, apphong talks to it
+over HTTP, settlement comes back through the callback; `npm test` covers it
+(spec + plan in docs/superpowers/). VPS rollout of midhong (env vars, unit,
+nginx, certbot, agent.ini url) is an operator step — see docs/DEPLOYMENT.md §5.
 
 Open/likely asks:
+- QRIS/online payment in the app (needs a decision on bridge-side ESB
+  settlement — golden rule 5 says the bridge never writes payments).
 - Takeout variant polish on ESB side (visit purpose per mode is implemented;
   verify against a real takeaway purpose row).
 - Production counter: switch queueNum from MAX+1 to the build's counter table
