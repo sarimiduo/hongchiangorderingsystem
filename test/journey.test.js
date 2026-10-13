@@ -116,3 +116,30 @@ test('midhong: report settled returns immediately even when apphong is down', as
   assert.equal(st.body.callback.ok, false);           // apphong is not running yet
   assert.ok(st.body.callback.attempts >= 1);
 });
+
+test('apphong: starts and rejects callbacks with a bad token', async () => {
+  T.app = require('../server/index');
+  T.servers.push(await T.app.start());
+  const r = await post(`${T.APP}/api/bridge/callback`, { order_no: 'X' }, 'wrong');
+  assert.equal(r.code, 401);
+});
+
+test('apphong: callback for an order the KDS does not know is acknowledged (no endless retry)', async () => {
+  const r = await post(`${T.APP}/api/bridge/callback`, { order_no: 'GHOST', reservation_id: 999, mode: 'dinein', payment_method: '00' }, 't-bridge');
+  assert.equal(r.code, 200);
+  assert.equal(r.body.status, true);
+  assert.equal(r.body.msg, 'kds_unknown_order');
+});
+
+test('apphong: /api/pay is gone', async () => {
+  const r = await post(`${T.APP}/api/pay`, { mode: 'walkin', order_no: 'x' });
+  assert.equal(r.code, 404);
+});
+
+test('apphong: /api/menu serves the ESB catalog synced on midhong', async () => {
+  require('../server/bridge-client').resetMenuCache();
+  const m = await j(`${T.APP}/api/menu`);
+  assert.equal(m.body.source, 'esb');
+  assert.ok(m.body.store && m.body.store.name, 'store info still comes from the local file');
+  assert.equal(m.body.meals[0].menu_code, 'ET');
+});

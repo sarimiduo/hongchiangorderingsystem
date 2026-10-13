@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Hong Chiang Ordering System — app server.
+ * Hong Chiang Ordering System — app server (apphong).
  *
  * Zero-dependency Node server that:
  *  - serves the ESB-style ordering SPA from /public
@@ -8,23 +8,29 @@
  *  - talks to the Hong-Chiang KDS API either via the built-in mock
  *    (KDS_MODE=mock, default) or a real KDS device (KDS_MODE=real,
  *    KDS_BASE_URL=http://{host}:5500/kds)
+ *  - pushes every saved order to the midhong bridge (BRIDGE_URL) and receives
+ *    the settlement callback when the ESB cashier finishes the bill.
  *
  * The real KDS API (spec v2.0.1) is read/status-update only — it has no
  * create-order or menu endpoint. The menu catalog and order creation live
- * in this app; payment/status updates are pushed through the KDS endpoints
- * (reservations/update, walkIns/update).
+ * in this app. Stage 1 is cashier-only: there is no in-app payment.
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const kdsMock = require('./kds-mock');
-const bridge = require('./bridge');
+const { send, readBody, bearerOk, requireEnv } = require('./http-util');
+
+requireEnv(['BRIDGE_URL', 'BRIDGE_TOKEN'], 'apphong');
+const bridgeClient = require('./bridge-client');
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '127.0.0.1';
 const KDS_MODE = (process.env.KDS_MODE || 'mock').toLowerCase();
 const KDS_BASE_URL = (process.env.KDS_BASE_URL || 'http://127.0.0.1:5500/kds').replace(/\/+$/, '');
 const CURRENCY = process.env.CURRENCY || 'Rp';
+const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN;
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const MENU = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'menu.json'), 'utf8'));
@@ -37,28 +43,12 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
-/** The menu the app serves: ESB-synced catalog (bridge) wins over the local file. */
-function activeMenu() {
-  const esb = bridge.appMenuFromEsb();
+/** The menu the app serves: ESB-synced catalog (from midhong) wins over the local file. */
+async function activeMenu() {
+  const esb = await bridgeClient.menu();
   if (esb) return { store: MENU.store, ...esb };
   return { source: 'local', ...MENU };
 }
-
-// When the agent (or the simulator) reports that the cashier settled the bill
-// on the ESB POS, feed the result back into the Hong Chiang KDS.
-bridge.state.onSettled = async cmd => {
-  if (cmd.mode === 'dinein' && cmd.reservation_id) {
-    await kds('reservations/update', {
-      id: Number(cmd.reservation_id), status: 'COMPLETED',
-      payment_method: cmd.payment_method || '00',
-    });
-  } else {
-    await kds('walkIns/update', {
-      order_no: String(cmd.order_no), status: 'paid',
-      payment_method: cmd.payment_method || '00',
-    });
-  }
-};
 
 /** Call the KDS backend (mock or real). */
 async function kds(relPath, body) {
@@ -73,64 +63,60 @@ async function kds(relPath, body) {
   return kdsMock.handle(relPath, body || {});
 }
 
-function send(res, code, data, type) {
-  const payload = typeof data === 'string' ? data : JSON.stringify(data);
-  res.writeHead(code, {
-    'Content-Type': type || 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-  });
-  res.end(payload);
-}
-
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', c => { raw += c; if (raw.length > 1e6) req.destroy(); });
-    req.on('end', () => {
-      if (!raw) return resolve({});
-      try { resolve(JSON.parse(raw)); } catch (e) { reject(e); }
-    });
-    req.on('error', reject);
-  });
+/**
+ * The ESB cashier settled the bill (midhong callback) → close it in the KDS.
+ * Returns {status:true, msg:'success'} on success, {status:true, msg:'kds_unknown_order'}
+ * when the KDS does not know the order (nothing to heal by retrying), and
+ * throws when the KDS itself is unreachable (midhong will retry).
+ */
+async function settleInKds(p) {
+  const out = p.mode === 'dinein' && p.reservation_id
+    ? await kds('reservations/update', { id: Number(p.reservation_id), status: 'COMPLETED', payment_method: p.payment_method || '00' })
+    : await kds('walkIns/update', { order_no: String(p.order_no), status: 'paid', payment_method: p.payment_method || '00' });
+  if (!out || out.status !== true) {
+    console.error(`[apphong] settle ${p.order_no}: KDS answered ${JSON.stringify(out)} — acknowledged, not retried`);
+    return { status: true, msg: 'kds_unknown_order' };
+  }
+  console.log(`[apphong] settled ${p.order_no} in KDS (payment ${p.payment_method || '00'}${p.billNum ? ', bill ' + p.billNum : ''})`);
+  return { status: true, msg: 'success' };
 }
 
 async function handleApi(req, res, url) {
   const route = url.pathname.replace(/^\/api\//, '');
 
-  if (req.method === 'GET' && route === 'menu') return send(res, 200, activeMenu());
+  if (req.method === 'GET' && route === 'menu') return send(res, 200, await activeMenu());
 
-  // ---- bridge: public status endpoints (frontend) ----
+  // ---- bridge: read-only proxies to midhong (keeps the SPA on one origin) ----
   if (req.method === 'GET' && route.startsWith('bridge/status')) {
     const orderNo = url.searchParams.get('order_no');
-    const st = orderNo ? bridge.statusFor(orderNo) : null;
-    return send(res, st ? 200 : 404, st || { status: false, msg: 'not_found' });
+    try {
+      const st = orderNo ? await bridgeClient.status(orderNo) : null;
+      return send(res, st ? 200 : 404, st || { status: false, msg: 'not_found' });
+    } catch (e) {
+      return send(res, 503, { status: false, msg: 'bridge unreachable: ' + e.message });
+    }
   }
   if (req.method === 'GET' && route === 'bridge/overview') {
-    return send(res, 200, bridge.overview());
+    try {
+      return send(res, 200, await bridgeClient.overview());
+    } catch (e) {
+      return send(res, 503, { status: false, msg: 'bridge unreachable: ' + e.message, agent_live: false, simulator: false, esb_menu: null, commands: [] });
+    }
   }
 
-  // ---- bridge: agent endpoints (Bearer AGENT_TOKEN) ----
-  if (route.startsWith('bridge/agent/')) {
-    const auth = req.headers.authorization || '';
-    if (auth !== 'Bearer ' + bridge.AGENT_TOKEN) {
+  // ---- bridge: settlement callback from midhong (Bearer BRIDGE_TOKEN) ----
+  if (req.method === 'POST' && route === 'bridge/callback') {
+    if (!bearerOk(req, BRIDGE_TOKEN)) {
+      console.error('[apphong] /api/bridge/callback: bad BRIDGE_TOKEN');
       return send(res, 401, { status: false, msg: 'unauthorized' });
     }
-    bridge.touchAgent(req.headers['x-agent-info'] ? { info: String(req.headers['x-agent-info']).slice(0, 100) } : null);
-    if (req.method === 'GET' && route === 'bridge/agent/commands') {
-      return send(res, 200, { status: true, msg: 'success', data: bridge.listQueued() });
+    const body = await readBody(req);
+    if (!body.order_no) return send(res, 400, { status: false, msg: 'bad payload' });
+    try {
+      return send(res, 200, await settleInKds(body));
+    } catch (e) {
+      return send(res, 502, { status: false, msg: 'KDS unreachable: ' + e.message });
     }
-    if (req.method === 'POST' && route === 'bridge/agent/report') {
-      const body = await readBody(req);
-      return send(res, 200, await bridge.report(body));
-    }
-    if (req.method === 'POST' && route === 'bridge/agent/menu') {
-      const body = await readBody(req);
-      return send(res, 200, bridge.setEsbMenu(body));
-    }
-    if (req.method === 'POST' && route === 'bridge/agent/heartbeat') {
-      return send(res, 200, { status: true, msg: 'success' });
-    }
-    return send(res, 404, { status: false, msg: 'not_found' });
   }
 
   if (req.method === 'GET' && route === 'config') {
@@ -139,6 +125,7 @@ async function handleApi(req, res, url) {
       kds_mode: KDS_MODE,
       store: MENU.store,
       payment_methods: kdsMock.PAYMENT_METHODS,
+      bridge_url: bridgeClient.BRIDGE_URL,
     });
   }
 
@@ -161,84 +148,62 @@ async function handleApi(req, res, url) {
     }
   }
 
-  // Checkout — the simulation extension (real KDS has no create-order API).
+  // Save Order — creates the KDS order, then pushes it to midhong -> agent -> ESB POS.
   if (req.method === 'POST' && route === 'checkout') {
     const body = await readBody(req);
     if (!Array.isArray(body.meals) || body.meals.length === 0) {
       return send(res, 400, { status: false, msg: 'empty_cart', data: [] });
     }
-    const menu = activeMenu();
+    const menu = await activeMenu();
     const catalog = new Map(menu.meals.map(m => [m.meal_id, m]));
-    const meals = body.meals.map(m => {
-      const cat = catalog.get(Number(m.meal_id));
-      if (!cat) throw new Error('unknown meal ' + m.meal_id);
-      const extras = Number(m.options_price) || 0;
-      const catName = (menu.categories.find(c => c.id === cat.category_id) || {}).name || null;
-      return {
-        meal_id: cat.meal_id, meal_name: cat.meal_name,
-        menu_code: cat.menu_code || '',
-        quantity: Math.max(1, Number(m.quantity) || 1),
-        price: cat.price + extras,
-        remarks: String(m.remarks || ''),
-        category_id: cat.category_id, category_name: catName,
-      };
-    });
+    let meals;
     try {
-      const { order, reservation } = kdsMock.createOrder({
-        type: body.type === 'dinein' ? 'dinein' : 'walkin',
-        table_id: body.table_id, guest_count: body.guest_count,
-        customer: body.customer || {}, note: body.note || '', meals,
-      });
-      // Push the order to the bridge middleware -> local SQL agent -> ESB POS.
-      bridge.enqueueOrder({
-        order_no: order.order_no,
-        reservation_id: reservation ? reservation.id : null,
-        mode: order.type,
-        table_name: body.table_name || null,
-        pax: body.guest_count,
-        customer: body.customer || {},
-        note: body.note || '',
-        items: meals.map(m => ({
-          menu_code: m.menu_code, menu_name: m.meal_name,
-          qty: m.quantity, price: m.price, notes: m.remarks,
-        })),
-        total: Number(order.total_price),
-      });
-      return send(res, 200, {
-        status: true, msg: 'success',
-        data: {
-          order_no: order.order_no, order_id: order.id,
-          reservation_id: reservation ? reservation.id : null,
-          total_price: order.total_price,
-          local_only: KDS_MODE === 'real',
-        },
+      meals = body.meals.map(m => {
+        const cat = catalog.get(Number(m.meal_id));
+        if (!cat) throw new Error('unknown meal ' + m.meal_id);
+        const extras = Number(m.options_price) || 0;
+        const catName = (menu.categories.find(c => c.id === cat.category_id) || {}).name || null;
+        return {
+          meal_id: cat.meal_id, meal_name: cat.meal_name,
+          menu_code: cat.menu_code || '',
+          quantity: Math.max(1, Number(m.quantity) || 1),
+          price: cat.price + extras,
+          remarks: String(m.remarks || ''),
+          category_id: cat.category_id, category_name: catName,
+        };
       });
     } catch (e) {
       return send(res, 400, { status: false, msg: e.message, data: [] });
     }
-  }
-
-  // Payment — maps to the documented status-update endpoints.
-  if (req.method === 'POST' && route === 'pay') {
-    const body = await readBody(req);
-    try {
-      if (body.mode === 'dinein') {
-        const out = await kds('reservations/update', {
-          id: Number(body.reservation_id),
-          status: 'COMPLETED',
-          payment_method: body.payment_method || '00',
-        });
-        return send(res, 200, out);
-      }
-      const out = await kds('walkIns/update', {
-        order_no: String(body.order_no),
-        status: 'paid',
-        payment_method: body.payment_method || '00',
-      });
-      return send(res, 200, out);
-    } catch (e) {
-      return send(res, 502, { status: false, msg: 'KDS unreachable: ' + e.message, data: [] });
-    }
+    const { order, reservation } = kdsMock.createOrder({
+      type: body.type === 'dinein' ? 'dinein' : 'walkin',
+      table_id: body.table_id, guest_count: body.guest_count,
+      customer: body.customer || {}, note: body.note || '', meals,
+    });
+    const push = await bridgeClient.pushOrder({
+      order_no: order.order_no,
+      reservation_id: reservation ? reservation.id : null,
+      mode: order.type,
+      table_name: body.table_name || null,
+      pax: body.guest_count,
+      customer: body.customer || {},
+      note: body.note || '',
+      items: meals.map(m => ({
+        menu_code: m.menu_code, menu_name: m.meal_name,
+        qty: m.quantity, price: m.price, notes: m.remarks,
+      })),
+      total: Number(order.total_price),
+    });
+    return send(res, 200, {
+      status: true, msg: 'success',
+      data: {
+        order_no: order.order_no, order_id: order.id,
+        reservation_id: reservation ? reservation.id : null,
+        total_price: order.total_price,
+        local_only: KDS_MODE === 'real',
+        bridge_pushed: push.pushed,
+      },
+    });
   }
 
   return send(res, 404, { status: false, msg: 'not_found', data: [] });
@@ -267,6 +232,15 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Hong Chiang Ordering System listening on http://0.0.0.0:${PORT} (KDS_MODE=${KDS_MODE}${KDS_MODE === 'real' ? ', KDS=' + KDS_BASE_URL : ''})`);
-});
+function start(port = PORT) {
+  return new Promise(resolve => {
+    server.listen(port, HOST, () => {
+      console.log(`Hong Chiang Ordering System listening on http://${HOST}:${server.address().port} (KDS_MODE=${KDS_MODE}${KDS_MODE === 'real' ? ', KDS=' + KDS_BASE_URL : ''}, bridge=${bridgeClient.BRIDGE_URL})`);
+      resolve(server);
+    });
+  });
+}
+
+if (require.main === module) start();
+
+module.exports = { start, server, settleInKds };
