@@ -6,17 +6,39 @@
     "banner": "新菜上市 · 歡迎光臨 — Yuk Cobain Sekarang!"
   },
   "categories": [
-    { "id": 1, "name": "Favorit Banyak Orang" },
-    { "id": 2, "name": "Paket Keluarga" },
-    { "id": 3, "name": "Paket Berdua" },
-    { "id": 6, "name": "每日特餐 Daily Special" },
-    { "id": 4, "name": "單點主食 Mains" },
-    { "id": 5, "name": "小菜 Sides" },
-    { "id": 7, "name": "飲料 Drinks" }
+    {
+      "id": 1,
+      "name": "Favorit Banyak Orang"
+    },
+    {
+      "id": 2,
+      "name": "Paket Keluarga"
+    },
+    {
+      "id": 3,
+      "name": "Paket Berdua"
+    },
+    {
+      "id": 6,
+      "name": "每日特餐 Daily Special"
+    },
+    {
+      "id": 4,
+      "name": "單點主食 Mains"
+    },
+    {
+      "id": 5,
+      "name": "小菜 Sides"
+    },
+    {
+      "id": 7,
+      "name": "飲料 Drinks"
+    }
   ],
   "meals": [
     {
       "meal_id": 13,
+      "menu_code": "HC-013",
       "meal_name": "雞肉菇菇咖哩飯 Chicken Mushroom Curry Rice",
       "short_name": "Chicken Curry Rice",
       "price": 43182,
@@ -31,8 +53,14 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "White Rice 白飯", "price": 0 },
-            { "name": "Brown Rice 糙米飯", "price": 3000 }
+            {
+              "name": "White Rice 白飯",
+              "price": 0
+            },
+            {
+              "name": "Brown Rice 糙米飯",
+              "price": 3000
+            }
           ]
         },
         {
@@ -40,10 +68,22 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Not Spicy 不辣", "price": 0 },
-            { "name": "Level 1 小辣", "price": 0 },
-            { "name": "Level 2 中辣", "price": 0 },
-            { "name": "Level 3 大辣", "price": 0 }
+            {
+              "name": "Not Spicy 不辣",
+              "price": 0
+            },
+            {
+              "name": "Level 1 小辣",
+              "price": 0
+            },
+            {
+              "name": "Level 2 中辣",
+              "price": 0
+            },
+            {
+              "name": "Level 3 大辣",
+              "price": 0
+            }
           ]
         },
         {
@@ -51,14 +91,21 @@
           "required": false,
           "max": 1,
           "options": [
-            { "name": "Es Teh Manis Jumbo", "price": 0 },
-            { "name": "Winter Melon Tea 冬瓜茶", "price": 5000 }
+            {
+              "name": "Es Teh Manis Jumbo",
+              "price": 0
+            },
+            {
+              "name": "Winter Melon Tea 冬瓜茶",
+              "price": 5000
+            }
           ]
         }
       ]
     },
     {
       "meal_id": 21,
+      "menu_code": "HC-021",
       "meal_name": "三杯雞飯 Three-Cup Chicken Rice",
       "short_name": "Three-Cup Chicken",
       "price": 48182,
@@ -70,6 +117,7 @@
     },
     {
       "meal_id": 22,
+      "menu_code": "HC-022",
       "meal_name": "炒空心菜 Cah Kangkung Bakar",
       "short_name": "Cah Kangkung",
       "price": 18182,
@@ -81,6 +129,7 @@
     },
     {
       "meal_id": 31,
+      "menu_code": "HC-031",
       "meal_name": "全家福大拼盤 Family Feast 1",
       "short_name": "Family Feast 1",
       "price": 299091,
@@ -95,8 +144,14 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Cah Kangkung", "price": 0 },
-            { "name": "Golden Tofu 黃金豆腐", "price": 0 }
+            {
+              "name": "Cah Kangkung",
+              "price": 0
+            },
+            {
+              "name": "Golden Tofu 黃金豆腐",
+              "price": 0
+            }
           ]
         },
         {
@@ -104,8 +159,14 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Century Egg 皮蛋豆腐", "price": 0 },
-            { "name": "Pickled Cucumber 涼拌小黃瓜", "price": 0 }
+            {
+              "name": "Century Egg 皮蛋豆腐",
+              "price": 0
+            },
+            {
+              "name": "Pickled Cucumber 涼拌小黃瓜",
+              "price": 0
+            }
           ]
         },
         {
@@ -113,15 +174,25 @@
           "required": true,
           "max": 4,
           "options": [
-            { "name": "Iced Tea 冰紅茶", "price": 0 },
-            { "name": "Winter Melon Tea 冬瓜茶", "price": 0 },
-            { "name": "Lemon Tea 檸檬茶", "price": 0 }
+            {
+              "name": "Iced Tea 冰紅茶",
+              "price": 0
+            },
+            {
+              "name": "Winter Melon Tea 冬瓜茶",
+              "price": 0
+            },
+            {
+              "name": "Lemon Tea 檸檬茶",
+              "price": 0
+            }
           ]
         }
       ]
     },
     {
       "meal_id": 32,
+      "menu_code": "HC-032",
       "meal_name": "闔家歡宴 Family Feast 2",
       "short_name": "Family Feast 2",
       "price": 579091,
@@ -133,6 +204,7 @@
     },
     {
       "meal_id": 41,
+      "menu_code": "HC-041",
       "meal_name": "雙人雞腿餐 Couple Set — Double Chicken",
       "short_name": "Couple Set 1",
       "price": 107727,
@@ -144,6 +216,7 @@
     },
     {
       "meal_id": 42,
+      "menu_code": "HC-042",
       "meal_name": "雙人魚香餐 Couple Set — Fish & Skin",
       "short_name": "Couple Set 2",
       "price": 75909,
@@ -155,6 +228,7 @@
     },
     {
       "meal_id": 61,
+      "menu_code": "HC-061",
       "meal_name": "今日特餐 Chef's Daily Special",
       "short_name": "Daily Special",
       "price": 39091,
@@ -166,6 +240,7 @@
     },
     {
       "meal_id": 62,
+      "menu_code": "HC-062",
       "meal_name": "滷肉飯 Braised Pork Rice",
       "short_name": "Braised Pork Rice",
       "price": 35909,
@@ -177,6 +252,7 @@
     },
     {
       "meal_id": 51,
+      "menu_code": "HC-051",
       "meal_name": "牛肉麵 Beef Noodle Soup",
       "short_name": "Beef Noodles",
       "price": 57727,
@@ -191,8 +267,14 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Thin Noodle 細麵", "price": 0 },
-            { "name": "Wide Noodle 寬麵", "price": 0 }
+            {
+              "name": "Thin Noodle 細麵",
+              "price": 0
+            },
+            {
+              "name": "Wide Noodle 寬麵",
+              "price": 0
+            }
           ]
         },
         {
@@ -200,14 +282,21 @@
           "required": false,
           "max": 2,
           "options": [
-            { "name": "Extra Beef 加牛肉", "price": 15000 },
-            { "name": "Egg 滷蛋", "price": 5000 }
+            {
+              "name": "Extra Beef 加牛肉",
+              "price": 15000
+            },
+            {
+              "name": "Egg 滷蛋",
+              "price": 5000
+            }
           ]
         }
       ]
     },
     {
       "meal_id": 52,
+      "menu_code": "HC-052",
       "meal_name": "脆皮烤鴨飯 Crispy Duck Rice",
       "short_name": "Crispy Duck Rice",
       "price": 72727,
@@ -219,6 +308,7 @@
     },
     {
       "meal_id": 53,
+      "menu_code": "HC-053",
       "meal_name": "宮保雞丁飯 Kung Pao Chicken Rice",
       "short_name": "Kung Pao Chicken",
       "price": 45455,
@@ -230,6 +320,7 @@
     },
     {
       "meal_id": 71,
+      "menu_code": "HC-071",
       "meal_name": "黃金豆腐 Golden Tofu",
       "short_name": "Golden Tofu",
       "price": 15455,
@@ -241,6 +332,7 @@
     },
     {
       "meal_id": 72,
+      "menu_code": "HC-072",
       "meal_name": "皮蛋豆腐 Century Egg Tofu",
       "short_name": "Century Egg Tofu",
       "price": 13636,
@@ -252,6 +344,7 @@
     },
     {
       "meal_id": 73,
+      "menu_code": "HC-073",
       "meal_name": "涼拌小黃瓜 Pickled Cucumber",
       "short_name": "Pickled Cucumber",
       "price": 11818,
@@ -263,6 +356,7 @@
     },
     {
       "meal_id": 81,
+      "menu_code": "HC-081",
       "meal_name": "珍珠奶茶 Bubble Milk Tea",
       "short_name": "Bubble Milk Tea",
       "price": 22727,
@@ -277,9 +371,18 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Normal 正常糖", "price": 0 },
-            { "name": "Less 半糖", "price": 0 },
-            { "name": "No Sugar 無糖", "price": 0 }
+            {
+              "name": "Normal 正常糖",
+              "price": 0
+            },
+            {
+              "name": "Less 半糖",
+              "price": 0
+            },
+            {
+              "name": "No Sugar 無糖",
+              "price": 0
+            }
           ]
         },
         {
@@ -287,15 +390,25 @@
           "required": true,
           "max": 1,
           "options": [
-            { "name": "Normal Ice 正常冰", "price": 0 },
-            { "name": "Less Ice 少冰", "price": 0 },
-            { "name": "No Ice 去冰", "price": 0 }
+            {
+              "name": "Normal Ice 正常冰",
+              "price": 0
+            },
+            {
+              "name": "Less Ice 少冰",
+              "price": 0
+            },
+            {
+              "name": "No Ice 去冰",
+              "price": 0
+            }
           ]
         }
       ]
     },
     {
       "meal_id": 82,
+      "menu_code": "HC-082",
       "meal_name": "冬瓜茶 Winter Melon Tea",
       "short_name": "Winter Melon Tea",
       "price": 13636,
@@ -307,6 +420,7 @@
     },
     {
       "meal_id": 83,
+      "menu_code": "HC-083",
       "meal_name": "Es Teh Manis Jumbo",
       "short_name": "Es Teh Jumbo",
       "price": 9091,

@@ -74,6 +74,33 @@ docs/                 deployment, VPS git workflow, Hermes + Discord setup
 - `POST /api/checkout` — create order (simulation of POS → KDS)
 - `POST /api/pay` — settle: dine-in → `reservations/update {status: COMPLETED}`, takeout → `walkIns/update {status: paid}`
 
+## ESB POS bridge (middleware + local SQL agent)
+
+The simulation journey **Hong Chiang → middleware → ESB POS → cashier →
+feedback** is built in:
+
+1. Fill the order in the app → **Save Order** (cart) — the order goes to the
+   kitchen (KDS) *and* is pushed to the middleware queue.
+2. The **local agent** (`agent/hc_bridge_agent.py`, runs next to the ESB POS)
+   polls the queue and writes the ESB database directly:
+   TXN A `tr_saleshead` + `tr_tableusage` (table OPEN, yellow), then
+   TXN B `tr_salesmenu` + head totals (table OCCUPIED, red) — same menu via
+   `menuCode`/name resolution against `ms_menu`.
+3. The agent **watches** the sale; when the human cashier settles the bill on
+   the ESB POS, it reports back and the webapp feeds the result into the
+   Hong Chiang KDS (`reservations/update COMPLETED` / `walkIns/update paid`).
+4. Watch it live: the **order status page** shows the bridge timeline; the
+   **Bridge Monitor** page (home → Bridge Monitor) shows every order's flow.
+
+Extras: `--sync-menu` imports the real ESB catalog (`ms_menu` + template
+prices) so the app sells exactly the POS's menu; with no live agent the
+built-in **simulator** (`BRIDGE_SIM=1`, default) advances the stages so the
+demo works standalone. Agent setup: `agent/agent.ini.example`; design:
+[docs/HC_ESB_SQL_BRIDGE_DESIGN.md](docs/HC_ESB_SQL_BRIDGE_DESIGN.md).
+
+Env: `AGENT_TOKEN` (shared secret for `/api/bridge/agent/*`), `BRIDGE_SIM`,
+`BRIDGE_SIM_SETTLE_SECONDS`.
+
 ## Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for putting this on your VPS behind

@@ -36,15 +36,17 @@ const state = {
   nextReservationId: 316,
   nextOrderId: 361,
   nextMealRowId: 1062,
+  // Table names match the ESB POS floor plan (ms_table.tableName) so the
+  // bridge can resolve them 1:1; remap per-site via the agent's [tables] map.
   tables: [
-    { id: 10, name: 'A1', status: 'IDLE', sort: 1, seats: 4 },
-    { id: 11, name: 'A2', status: 'IDLE', sort: 2, seats: 4 },
-    { id: 12, name: 'A3', status: 'IDLE', sort: 3, seats: 4 },
-    { id: 13, name: 'A4', status: 'IDLE', sort: 4, seats: 2 },
-    { id: 14, name: 'B1', status: 'IDLE', sort: 5, seats: 6 },
-    { id: 15, name: 'B2', status: 'IDLE', sort: 6, seats: 6 },
-    { id: 16, name: 'B3', status: 'IDLE', sort: 7, seats: 8 },
-    { id: 17, name: 'VIP1', status: 'IDLE', sort: 8, seats: 12 },
+    { id: 10, name: '1', status: 'IDLE', sort: 1, seats: 4 },
+    { id: 11, name: '2', status: 'IDLE', sort: 2, seats: 4 },
+    { id: 12, name: '3', status: 'IDLE', sort: 3, seats: 4 },
+    { id: 13, name: '5', status: 'IDLE', sort: 4, seats: 2 },
+    { id: 14, name: '6', status: 'IDLE', sort: 5, seats: 4 },
+    { id: 15, name: '8', status: 'IDLE', sort: 6, seats: 6 },
+    { id: 16, name: '23', status: 'IDLE', sort: 7, seats: 6 },
+    { id: 17, name: '25', status: 'IDLE', sort: 8, seats: 8 },
   ],
   reservations: [],  // {id, table_id, date, time, name, phone, status, guest_count, dining_duration, seated_time, completed_time, note, order_id}
   orders: [],        // {id, order_no, table_id|null, status, total_price, payment_method, invoice_no, paidtime, createtime, updatetime, type}

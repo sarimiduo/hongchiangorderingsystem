@@ -1,0 +1,22 @@
+[webapp]
+; the middleware webapp (this repo). Use your deployed URL in production.
+url = http://127.0.0.1:3000
+; must match AGENT_TOKEN in the webapp .env
+token = change-me-agent-token
+
+[mysql]
+; the LOCAL ESB POS database (never expose it beyond the LAN)
+host = 127.0.0.1
+port = 3306
+user = esb
+password = secret
+db = sushipos
+
+[agent]
+; a REAL cashier username from ms_posuser — all bridge writes are stamped with it
+cashier_username = PTGNBKASIR1
+; brand code portion of salesNum (e.g. SUSHO). Leave empty to derive from an existing sale.
+brand_code =
+poll_seconds = 5
+default_pax = 2
+state_file = agent_state.json

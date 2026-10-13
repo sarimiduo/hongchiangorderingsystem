@@ -63,6 +63,7 @@ function cartTotal() { return cartSubtotal() + serviceFee(); }
 const routes = {
   '': renderHome, home: renderHome, tables: renderTables, menu: renderMenu,
   cart: renderCart, payment: renderPayment, status: renderStatus, takeout: renderTakeout,
+  bridge: renderBridge,
 };
 function go(r) { location.hash = '#/' + r; }
 window.addEventListener('hashchange', route);
@@ -98,11 +99,17 @@ function renderHome() {
         <span><b>Takeout Board</b><p>Live walk-in queue from the KDS</p></span>
         <span class="chev">›</span>
       </button>
+      <button class="mode-btn" id="btn-bridge">
+        <span class="ic">🔁</span>
+        <span><b>Bridge Monitor</b><p>Orders flowing to the ESB POS via the middleware</p></span>
+        <span class="chev">›</span>
+      </button>
       <p class="center muted">Powered by Hong-Chiang KDS API v2.0.1 · ${esc(S.config.kds_mode)} mode</p>
     </div>`;
   document.getElementById('btn-dinein').onclick = () => { S.session.mode = 'dinein'; save(); go('tables'); };
   document.getElementById('btn-takeout').onclick = () => { S.session.mode = 'walkin'; S.session.table = null; S.session.pax = null; save(); go('menu'); };
   document.getElementById('btn-board').onclick = () => go('takeout');
+  document.getElementById('btn-bridge').onclick = () => go('bridge');
 }
 
 /* ------------------------------------------------------------- table pick */
@@ -378,12 +385,15 @@ function renderCart() {
         <div class="pd-row total"><span>Total</span><span class="val">${fmt(cartTotal())}</span></div>
       </div>
     </div>
+      <button class="btn-ghost" id="to-pay">Pay Online First (optional)</button>
+    </div>
     <div class="footbar">
       <span class="tp"><span class="l1">Total Payment</span><br><span class="l2">${fmt(cartTotal())}</span></span>
-      <button class="btn-primary" id="to-pay">Continue to Payment</button>
+      <button class="btn-primary" id="save-order">Save Order</button>
     </div>`;
 
   document.getElementById('cback').onclick = () => go('menu');
+  document.getElementById('save-order').onclick = saveOrder;
   document.getElementById('order-note').onchange = e => { S.session.note = e.target.value; save(); };
   document.getElementById('citems').onclick = e => {
     const inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]'), ed = e.target.closest('[data-edit]');
@@ -399,6 +409,33 @@ function renderCart() {
     }
   };
   document.getElementById('to-pay').onclick = () => go('payment');
+}
+
+/* Save Order — the main journey: order goes to the kitchen AND is pushed to
+ * the middleware -> local agent -> ESB POS. Payment happens at the cashier. */
+async function saveOrder() {
+  const btn = document.getElementById('save-order');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const out = await api('checkout', {
+    type: S.session.mode,
+    table_id: S.session.table ? S.session.table.id : null,
+    table_name: S.session.table ? S.session.table.name : null,
+    guest_count: S.session.pax ? parseInt(S.session.pax) || 2 : 2,
+    customer: { name: S.session.custName || 'Guest', phone: S.session.custPhone || '' },
+    note: S.session.note || '',
+    meals: S.cart.map(i => ({
+      meal_id: i.meal_id, quantity: i.qty, options_price: i.options_price,
+      remarks: [Object.entries(i.options || {}).map(([g, a]) => a.join(', ')).filter(Boolean).join(' / '), i.remarks].filter(Boolean).join(' · '),
+    })),
+  });
+  if (!out.status) { toast('Save failed: ' + out.msg); btn.disabled = false; btn.textContent = 'Save Order'; return; }
+  S.lastOrder = {
+    order_no: out.data.order_no, reservation_id: out.data.reservation_id,
+    mode: S.session.mode, table: S.session.table, paid: false,
+    payment_method: '00', pay_at_cashier: true, total: cartTotal(),
+  };
+  S.cart = []; save();
+  go('status');
 }
 
 /* ----------------------------------------------------------------- payment */
@@ -474,6 +511,7 @@ function renderPayment() {
     // 1) create the order (simulation of the POS -> KDS flow)
     const out = await api('checkout', {
       type: S.session.mode, table_id: S.session.table ? S.session.table.id : null,
+      table_name: S.session.table ? S.session.table.name : null,
       guest_count: S.session.pax ? parseInt(S.session.pax) || 2 : 2,
       customer: { name, phone: S.session.custPhone },
       note: S.session.note || '',
@@ -519,6 +557,9 @@ async function renderStatus() {
     <div class="wrap">
       <div class="ordno">Order No: ${esc(o.order_no)}</div>
       ${o.mode === 'dinein' && o.table ? `<div class="banner-card"><div class="tno">Table Number: <b>${esc(o.table.name)}</b></div></div>` : ''}
+      <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">ESB POS Bridge <span class="muted">(middleware → SQL agent)</span></h3>
+        <div id="bridge-live"><div class="center mt8"><span class="spin"></span></div></div>
+      </div>
       <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">Kitchen Status <span class="muted">(live from KDS)</span></h3>
         <div id="meals-live"><div class="center mt8"><span class="spin"></span></div></div>
       </div>
@@ -527,7 +568,34 @@ async function renderStatus() {
       <button class="btn-ghost" onclick="sessionStorage.clear();location.hash='#/home'">New Session</button>
     </div>`;
 
+  const BRIDGE_STAGES = [
+    ['queued', '📨', 'Pushed to middleware'],
+    ['picked_up', '🤖', 'Local agent picked up'],
+    ['table_opened', '🟡', 'SQL: table opened on ESB POS'],
+    ['order_saved', '🔴', 'SQL: order saved — table occupied'],
+    ['waiting_cashier', '🧑‍💼', 'Waiting for cashier on ESB POS'],
+    ['settled', '✅', 'Finished — bill settled on ESB POS'],
+  ];
+  async function pollBridge() {
+    const box = document.getElementById('bridge-live');
+    if (!box) return;
+    let st = null;
+    try { st = await api('bridge/status?order_no=' + encodeURIComponent(o.order_no)); } catch (e) { /* keep spinner */ }
+    if (!st || !st.stage) { box.innerHTML = '<p class="muted">No bridge record for this order.</p>'; return; }
+    const reached = i => BRIDGE_STAGES.findIndex(s => s[0] === st.stage) >= i || ['voided', 'error'].includes(st.stage);
+    box.innerHTML = `
+      ${BRIDGE_STAGES.map((s, i) => `
+        <div class="bstep ${reached(i) ? 'on' : ''}">
+          <span class="bic">${s[1]}</span>
+          <span class="btxt">${s[2]}${s[0] === 'table_opened' && st.salesNum && reached(i) ? `<br><span class="muted">salesNum ${esc(st.salesNum)}</span>` : ''}${s[0] === 'settled' && reached(5) && st.payment_method ? `<br><span class="muted">payment ${esc(st.payment_method)}${st.billNum ? ' · bill ' + esc(st.billNum) : ''}</span>` : ''}</span>
+          <span class="bdot">${reached(i) ? '✔' : ''}</span>
+        </div>`).join('')}
+      ${st.stage === 'voided' ? '<p class="muted mt8">⚠️ Voided by the cashier on ESB POS.</p>' : ''}
+      ${st.stage === 'error' ? `<p class="muted mt8">⚠️ Bridge error: ${esc(st.error || '')}</p>` : ''}
+      <p class="muted mt8" style="font-size:11.5px">${st.agent_live ? '🟢 live agent connected' : (st.simulated ? '🟠 simulator mode (no live agent)' : '')}</p>`;
+  }
   async function poll() {
+    pollBridge();
     const out = await api('kds/orders/details', { order_id: o.order_no });
     const box = document.getElementById('meals-live');
     if (!box) return;
@@ -557,6 +625,50 @@ async function renderStatus() {
   }
   poll();
   S.statusTimer = setInterval(poll, 5000);
+}
+
+/* ---------------------------------------------------------- bridge monitor */
+async function renderBridge() {
+  $app.innerHTML = `
+    <div class="topbar"><button class="back" onclick="location.hash='#/home'">←</button><h1>Bridge Monitor 🔁</h1></div>
+    <div class="wrap" id="bm-wrap"><div class="center mt16"><span class="spin"></span></div></div>`;
+  const STAGE_LABEL = {
+    queued: ['QUEUED', 'PREPARING'], picked_up: ['AGENT', 'PREPARING'],
+    table_opened: ['OPEN 🟡', 'PREPARING'], order_saved: ['OCCUPIED 🔴', 'PREPARING'],
+    waiting_cashier: ['CASHIER…', 'READY'], settled: ['FINISHED', 'PAID'],
+    voided: ['VOIDED', 'SERVED'], error: ['ERROR', 'SERVED'],
+  };
+  async function paint() {
+    const wrap = document.getElementById('bm-wrap');
+    if (!wrap) return;
+    const ov = await api('bridge/overview');
+    wrap.innerHTML = `
+      <div class="card">
+        <b>Hong Chiang → Middleware → ESB POS</b>
+        <p class="muted mt8">
+          Agent: ${ov.agent_live ? '🟢 live agent connected' : ov.simulator ? '🟠 simulator (no live agent)' : '⚪ offline'}
+          ${ov.esb_menu ? `<br>Menu synced from ESB POS: ${ov.esb_menu.meals} items (${esc(ov.esb_menu.synced_at.slice(0, 19).replace('T', ' '))})` : '<br>Menu source: local catalog'}
+        </p>
+      </div>
+      ${ov.commands.length === 0 ? '<p class="center muted mt16">No orders yet — place one from the menu 🍜</p>' : ''}
+      ${ov.commands.map(c => `
+        <div class="card" style="padding:12px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <b style="font-size:13.5px">${esc(c.order_no)}</b>
+            <span class="badge ${STAGE_LABEL[c.stage] ? STAGE_LABEL[c.stage][1] : 'SERVED'}">${STAGE_LABEL[c.stage] ? STAGE_LABEL[c.stage][0] : esc(c.stage)}</span>
+          </div>
+          <div class="muted" style="font-size:12.5px;margin-top:5px">
+            ${c.mode === 'dinein' ? 'Dine In · Table ' + esc(c.table_name || '?') : 'Takeout'} · ${c.items} item(s) · ${fmt(c.total)}
+            ${c.salesNum ? `<br>ESB salesNum: <b>${esc(c.salesNum)}</b>` : ''}
+            ${c.payment_method ? ` · paid (${esc(c.payment_method)})` : ''}
+          </div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px;border-top:1px dashed var(--line);padding-top:6px">
+            ${c.events.slice(-3).map(e => `${esc(e.t.slice(11))} — ${esc(e.detail || e.stage)}`).join('<br>')}
+          </div>
+        </div>`).join('')}`;
+  }
+  paint();
+  S.statusTimer = setInterval(paint, 3000);
 }
 
 /* ----------------------------------------------------------- takeout board */

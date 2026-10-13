@@ -19,6 +19,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const kdsMock = require('./kds-mock');
+const bridge = require('./bridge');
 
 const PORT = Number(process.env.PORT || 3000);
 const KDS_MODE = (process.env.KDS_MODE || 'mock').toLowerCase();
@@ -34,6 +35,29 @@ const MIME = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+};
+
+/** The menu the app serves: ESB-synced catalog (bridge) wins over the local file. */
+function activeMenu() {
+  const esb = bridge.appMenuFromEsb();
+  if (esb) return { store: MENU.store, ...esb };
+  return { source: 'local', ...MENU };
+}
+
+// When the agent (or the simulator) reports that the cashier settled the bill
+// on the ESB POS, feed the result back into the Hong Chiang KDS.
+bridge.state.onSettled = async cmd => {
+  if (cmd.mode === 'dinein' && cmd.reservation_id) {
+    await kds('reservations/update', {
+      id: Number(cmd.reservation_id), status: 'COMPLETED',
+      payment_method: cmd.payment_method || '00',
+    });
+  } else {
+    await kds('walkIns/update', {
+      order_no: String(cmd.order_no), status: 'paid',
+      payment_method: cmd.payment_method || '00',
+    });
+  }
 };
 
 /** Call the KDS backend (mock or real). */
@@ -73,7 +97,41 @@ function readBody(req) {
 async function handleApi(req, res, url) {
   const route = url.pathname.replace(/^\/api\//, '');
 
-  if (req.method === 'GET' && route === 'menu') return send(res, 200, MENU);
+  if (req.method === 'GET' && route === 'menu') return send(res, 200, activeMenu());
+
+  // ---- bridge: public status endpoints (frontend) ----
+  if (req.method === 'GET' && route.startsWith('bridge/status')) {
+    const orderNo = url.searchParams.get('order_no');
+    const st = orderNo ? bridge.statusFor(orderNo) : null;
+    return send(res, st ? 200 : 404, st || { status: false, msg: 'not_found' });
+  }
+  if (req.method === 'GET' && route === 'bridge/overview') {
+    return send(res, 200, bridge.overview());
+  }
+
+  // ---- bridge: agent endpoints (Bearer AGENT_TOKEN) ----
+  if (route.startsWith('bridge/agent/')) {
+    const auth = req.headers.authorization || '';
+    if (auth !== 'Bearer ' + bridge.AGENT_TOKEN) {
+      return send(res, 401, { status: false, msg: 'unauthorized' });
+    }
+    bridge.touchAgent(req.headers['x-agent-info'] ? { info: String(req.headers['x-agent-info']).slice(0, 100) } : null);
+    if (req.method === 'GET' && route === 'bridge/agent/commands') {
+      return send(res, 200, { status: true, msg: 'success', data: bridge.listQueued() });
+    }
+    if (req.method === 'POST' && route === 'bridge/agent/report') {
+      const body = await readBody(req);
+      return send(res, 200, await bridge.report(body));
+    }
+    if (req.method === 'POST' && route === 'bridge/agent/menu') {
+      const body = await readBody(req);
+      return send(res, 200, bridge.setEsbMenu(body));
+    }
+    if (req.method === 'POST' && route === 'bridge/agent/heartbeat') {
+      return send(res, 200, { status: true, msg: 'success' });
+    }
+    return send(res, 404, { status: false, msg: 'not_found' });
+  }
 
   if (req.method === 'GET' && route === 'config') {
     return send(res, 200, {
@@ -109,14 +167,16 @@ async function handleApi(req, res, url) {
     if (!Array.isArray(body.meals) || body.meals.length === 0) {
       return send(res, 400, { status: false, msg: 'empty_cart', data: [] });
     }
-    const catalog = new Map(MENU.meals.map(m => [m.meal_id, m]));
+    const menu = activeMenu();
+    const catalog = new Map(menu.meals.map(m => [m.meal_id, m]));
     const meals = body.meals.map(m => {
       const cat = catalog.get(Number(m.meal_id));
       if (!cat) throw new Error('unknown meal ' + m.meal_id);
       const extras = Number(m.options_price) || 0;
-      const catName = (MENU.categories.find(c => c.id === cat.category_id) || {}).name || null;
+      const catName = (menu.categories.find(c => c.id === cat.category_id) || {}).name || null;
       return {
         meal_id: cat.meal_id, meal_name: cat.meal_name,
+        menu_code: cat.menu_code || '',
         quantity: Math.max(1, Number(m.quantity) || 1),
         price: cat.price + extras,
         remarks: String(m.remarks || ''),
@@ -128,6 +188,21 @@ async function handleApi(req, res, url) {
         type: body.type === 'dinein' ? 'dinein' : 'walkin',
         table_id: body.table_id, guest_count: body.guest_count,
         customer: body.customer || {}, note: body.note || '', meals,
+      });
+      // Push the order to the bridge middleware -> local SQL agent -> ESB POS.
+      bridge.enqueueOrder({
+        order_no: order.order_no,
+        reservation_id: reservation ? reservation.id : null,
+        mode: order.type,
+        table_name: body.table_name || null,
+        pax: body.guest_count,
+        customer: body.customer || {},
+        note: body.note || '',
+        items: meals.map(m => ({
+          menu_code: m.menu_code, menu_name: m.meal_name,
+          qty: m.quantity, price: m.price, notes: m.remarks,
+        })),
+        total: Number(order.total_price),
       });
       return send(res, 200, {
         status: true, msg: 'success',

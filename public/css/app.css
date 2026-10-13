@@ -348,6 +348,13 @@ input, textarea { font: inherit; }
 #toast-root { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 90; display: grid; gap: 8px; }
 .toast { background: rgba(25,25,30,.92); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13.5px; animation: up .2s ease; }
 
+/* bridge timeline */
+.bstep { display: flex; align-items: center; gap: 11px; padding: 8px 0; opacity: .38; }
+.bstep.on { opacity: 1; }
+.bstep .bic { font-size: 18px; width: 24px; text-align: center; }
+.bstep .btxt { flex: 1; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.bstep .bdot { color: var(--green); font-weight: 800; width: 18px; }
+
 .center { text-align: center; }
 .muted { color: var(--ink-3); font-size: 13px; }
 .mt8 { margin-top: 8px; } .mt16 { margin-top: 16px; }
