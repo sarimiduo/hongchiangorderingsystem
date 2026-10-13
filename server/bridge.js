@@ -3,11 +3,12 @@
  * Bridge middleware — the order queue between the Hong Chiang web app and the
  * local SQL agent that writes into the ESB POS database.
  *
- * Flow (docs/HC_ESB_SQL_BRIDGE_DESIGN.md):
- *   checkout -> enqueue command -> agent polls /api/bridge/commands
+ * Flow (docs/HC_ESB_SQL_BRIDGE_DESIGN.md, docs/superpowers/specs/2026-10-13-midhong-split-design.md):
+ *   apphong checkout -> POST /api/bridge/orders (midhong) -> enqueue command
+ *   -> agent polls /api/bridge/agent/commands
  *   -> agent runs TXN A (open table, yellow) + TXN B (save order, red)
  *   -> agent watches the sale -> reports "settled" when the cashier finishes
- *   -> webapp feeds back into the Hong Chiang KDS (reservations/walkIns update).
+ *   -> midhong calls apphong back -> apphong feeds the KDS (reservations/walkIns update).
  *
  * Stages: queued -> picked_up -> table_opened -> order_saved ->
  *         waiting_cashier -> settled | voided | error
@@ -18,7 +19,7 @@
 
 const crypto = require('crypto');
 
-const AGENT_TOKEN = process.env.AGENT_TOKEN || 'change-me-agent-token';
+const AGENT_TOKEN = process.env.AGENT_TOKEN || ''; // mid.js refuses to start when empty
 const SIM_ENABLED = (process.env.BRIDGE_SIM || '1') !== '0';
 const SIM_SETTLE_SECONDS = Number(process.env.BRIDGE_SIM_SETTLE_SECONDS || 25);
 const AGENT_LIVE_WINDOW_MS = 30000; // a real agent heartbeat suppresses the simulator
@@ -39,7 +40,7 @@ const state = {
   esbMenu: null,       // catalog pushed by the agent's menu sync
   agentSeen: 0,        // last time a real agent called any agent endpoint
   agentInfo: null,     // {name, version} from the last agent call
-  onSettled: null,     // set by server/index.js — feeds back into the KDS
+  onSettled: null,     // set by server/mid.js — sends the settlement callback to apphong (not awaited)
 };
 
 function now() { return Date.now(); }
@@ -118,12 +119,11 @@ async function report(body) {
       ? String(body.payment_method_kds)
       : mapPaymentMethod(body.payment_method_name);
     if (state.onSettled) {
-      try {
-        await state.onSettled(cmd);
-        addEvent(cmd, 'settled', `Feedback sent to Hong Chiang KDS (payment ${cmd.payment_method})`);
-      } catch (e) {
-        addEvent(cmd, 'settled', 'KDS feedback failed: ' + e.message);
-      }
+      // Fire-and-forget: the hook may retry for minutes; the agent's HTTP
+      // report call must return immediately. The hook records its own events.
+      Promise.resolve()
+        .then(() => state.onSettled(cmd))
+        .catch(e => addEvent(cmd, 'settled', 'Callback failed: ' + e.message));
     }
   }
   return { status: true, msg: 'success' };
@@ -184,13 +184,15 @@ function appMenuFromEsb() {
   };
 }
 
-/** Public status views (frontend). */
+/** Public status views (frontend via apphong proxy, and the midhong monitor). */
 function statusFor(orderNo) {
   const c = findCommand(orderNo);
   if (!c) return null;
   return {
     id: c.id, order_no: c.order_no, stage: c.stage, simulated: c.simulated,
+    mode: c.mode, reservation_id: c.reservation_id, table_name: c.table_name, total: c.total,
     salesNum: c.salesNum, billNum: c.billNum, payment_method: c.payment_method,
+    callback: c.callback || null, pending_push: false,
     error: c.error, events: c.events, agent_live: isAgentLive(),
   };
 }
@@ -203,7 +205,8 @@ function overview() {
     commands: [...state.commands].reverse().slice(0, 50).map(c => ({
       id: c.id, order_no: c.order_no, mode: c.mode, table_name: c.table_name,
       total: c.total, stage: c.stage, simulated: c.simulated,
-      salesNum: c.salesNum, payment_method: c.payment_method,
+      salesNum: c.salesNum, billNum: c.billNum, payment_method: c.payment_method,
+      callback: c.callback || null,
       items: c.items.length, created: c.created, events: c.events,
     })),
   };
@@ -244,6 +247,6 @@ function simTick() {
 setInterval(simTick, 1000).unref();
 
 module.exports = {
-  AGENT_TOKEN, enqueueOrder, listQueued, report, setEsbMenu, appMenuFromEsb,
-  statusFor, overview, touchAgent, mapPaymentMethod, state,
+  AGENT_TOKEN, enqueueOrder, findCommand, addEvent, listQueued, report, setEsbMenu,
+  appMenuFromEsb, statusFor, overview, touchAgent, mapPaymentMethod, state,
 };
