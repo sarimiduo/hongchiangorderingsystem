@@ -186,3 +186,69 @@ test('apphong with midhong down: checkout succeeds, status shows pending_push, p
     assert.equal(unknown.code, 503);
   } finally { child.kill(); }
 });
+
+// ------------------------------------------------------------ full journeys
+async function checkout(type, extra) {
+  const menu = (await j(`${T.APP}/api/menu`)).body;
+  const co = await post(`${T.APP}/api/checkout`, {
+    type, guest_count: 2, customer: { name: 'Test' }, note: 'no chili',
+    meals: [{ meal_id: menu.meals[0].meal_id, quantity: 2, remarks: 'less ice' }], ...extra,
+  });
+  assert.equal(co.body.status, true, JSON.stringify(co.body));
+  assert.equal(co.body.data.bridge_pushed, true);
+  return co.body.data;
+}
+async function kdsOrder(orderNo) {
+  return (await post(`${T.APP}/api/kds/orders/details`, { order_id: orderNo })).body.data.order;
+}
+
+test('journey dine-in: save order → midhong queue → agent settles → callback → KDS paid', async () => {
+  const tables = (await post(`${T.APP}/api/kds/tables/search`, {})).body.data;
+  const table = tables.find(t => t.status === 'IDLE');
+  const o = await checkout('dinein', { table_id: table.id, table_name: table.name });
+  assert.ok(o.reservation_id);
+
+  // midhong has the same lines and total
+  const st = (await j(`${T.APP}/api/bridge/status?order_no=${o.order_no}`)).body;
+  assert.equal(st.stage, 'queued'); assert.equal(st.pending_push, false);
+  assert.equal(st.table_name, table.name); assert.equal(Number(st.total), Number(o.total_price));
+  const queued = (await j(`${T.MID}/api/bridge/agent/commands`, { headers: { Authorization: 'Bearer t-agent' } })).body.data;
+  const cmd = queued.find(c => c.order_no === o.order_no);
+  assert.equal(cmd.items.length, 1); assert.equal(cmd.items[0].qty, 2); assert.equal(cmd.items[0].notes, 'less ice');
+
+  // agent walks the stages, then the cashier settles with Card
+  for (const stage of ['picked_up', 'table_opened', 'order_saved', 'waiting_cashier']) {
+    const r = await post(`${T.MID}/api/bridge/agent/report`, { id: cmd.id, stage, salesNum: 'SSUSHO1', detail: stage }, 't-agent');
+    assert.equal(r.body.status, true);
+  }
+  const r = await post(`${T.MID}/api/bridge/agent/report`, { id: cmd.id, stage: 'settled', payment_method_name: 'Kartu Debit', billNum: 'JKT2026101301' }, 't-agent');
+  assert.equal(r.body.status, true);
+
+  const ord = await until(async () => { const x = await kdsOrder(o.order_no); return x.status === 'paid' ? x : null; });
+  assert.equal(ord.payment_method, '01');                            // Card
+  const done = (await j(`${T.APP}/api/bridge/status?order_no=${o.order_no}`)).body;
+  assert.equal(done.stage, 'settled'); assert.equal(done.billNum, 'JKT2026101301');
+  assert.equal(done.callback.ok, true); assert.equal(done.callback.attempts, 1);
+  const t2 = (await post(`${T.APP}/api/kds/tables/search`, {})).body.data.find(t => t.id === table.id);
+  assert.equal(t2.status, 'IDLE', 'table freed in the KDS');
+});
+
+test('journey takeout: walk-in settles through walkIns/update', async () => {
+  const o = await checkout('walkin', {});
+  assert.equal(o.reservation_id, null);
+  const r = await post(`${T.MID}/api/bridge/agent/report`, { order_no: o.order_no, stage: 'settled', payment_method_name: 'Cash' }, 't-agent');
+  assert.equal(r.body.status, true);
+  const ord = await until(async () => { const x = await kdsOrder(o.order_no); return x.status === 'paid' ? x : null; });
+  assert.equal(ord.payment_method, '00');
+  const open = (await post(`${T.APP}/api/kds/walkIns/get`, {})).body.data.order_nos;
+  assert.ok(!open.includes(o.order_no), 'no longer an open walk-in');
+});
+
+test('duplicate callback is harmless', async () => {
+  const o = await checkout('walkin', {});
+  const body = { order_no: o.order_no, reservation_id: null, mode: 'walkin', payment_method: '00' };
+  const a = await post(`${T.APP}/api/bridge/callback`, body, 't-bridge');
+  const b = await post(`${T.APP}/api/bridge/callback`, body, 't-bridge');
+  assert.equal(a.body.msg, 'success'); assert.equal(b.body.msg, 'success');
+  assert.equal((await kdsOrder(o.order_no)).status, 'paid');
+});

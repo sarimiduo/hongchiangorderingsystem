@@ -5,7 +5,9 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "KDS_MODE=mock node server/index.js"
+    "start:mid": "node server/mid.js",
+    "dev": "node server/dev.js",
+    "test": "node --test test/"
   },
   "engines": {
     "node": ">=18"
