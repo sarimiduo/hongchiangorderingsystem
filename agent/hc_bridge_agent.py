@@ -22,8 +22,9 @@ ESB replication middleware:
   - Idempotent: a re-delivered command never duplicates (guarded by order_no
     stamped into tr_saleshead.additionalInfo and by the local state file).
   - Writes stamped with a REAL cashier username (config), never "MIDDLEWARE".
-  - NOTE (demo-grade): TXN B writes tax-exclusive totals (no VAT/SC math).
-    Wire the esb-pos-data-structure money rules before production use.
+  - Tax math mirrors the vendor CalculateTotal.php: per-line other tax (service)
+    and VAT from map_branchvisitpurpose + menu flags (flagTax/flagOtherTax/
+    flagLuxuryItem), DPP ratio and rounding from ms_setting.
 
 Usage:
   python3 hc_bridge_agent.py --config agent.ini --run          # main loop
@@ -191,6 +192,54 @@ class Agent:
     def one(self, *a):
         return self.db.one(*a)
 
+    def setting(self, key1, key2, which=1, default=None):
+        if not self.db.columns("ms_setting"):
+            return default
+        r = self.one("SELECT value1, value2 FROM ms_setting WHERE key1 = %s AND key2 = %s",
+                     (key1, key2))
+        if not r:
+            return default
+        v = r["value1"] if which == 1 else r["value2"]
+        return v if v is not None else default
+
+    def tax_params(self, mode):
+        """Per-visit-purpose tax config (map_branchvisitpurpose) + POS settings.
+        Mirrors vendor CalculateTotal.php: taxValue (VAT %), additionalTaxValue
+        (other tax / service %), flagOtherTaxVat (VAT applies on top of other
+        tax), DPP ratio, rounding settings, and the price template."""
+        p = {"taxValue": 0.0, "additionalTaxValue": 0.0, "flagOtherTaxVat": 0,
+             "orderFee": 0.0, "menuTemplateID": None}
+        if self.db.columns("map_branchvisitpurpose"):
+            r = self.one(
+                "SELECT additionalTaxValue, flagOtherTaxVat, taxValue, orderFee, menuTemplateID "
+                "FROM map_branchvisitpurpose WHERE branchID = %s AND visitPurposeID = %s",
+                (self.branch_id(), self.visit_purpose(mode)))
+            if r:
+                p.update(taxValue=float(r["taxValue"] or 0),
+                         additionalTaxValue=float(r["additionalTaxValue"] or 0),
+                         flagOtherTaxVat=int(r["flagOtherTaxVat"] or 0),
+                         orderFee=float(r["orderFee"] or 0),
+                         menuTemplateID=r["menuTemplateID"])
+        p["dppRatio"] = (float(self.setting("VAT", "DPP Calculation Ratio", 1, 1) or 1)
+                         / float(self.setting("VAT", "DPP Calculation Ratio", 2, 1) or 1))
+        p["roundNearest"] = float(self.setting("POS", "Rounding Nearest Value", 1, 1) or 1)
+        p["roundMode"] = (self.setting("POS", "Rounding Mode", 1, "UP") or "UP").upper()
+        return p
+
+    @staticmethod
+    def apply_rounding(amount, nearest, mode):
+        if not nearest or nearest <= 1:
+            return amount
+        import math
+        q = amount / nearest
+        if mode == "DOWN":
+            q = math.floor(q)
+        elif mode in ("NORMAL", "HALF"):
+            q = math.floor(q + 0.5)
+        else:  # UP
+            q = math.ceil(q)
+        return q * nearest
+
     def visit_purpose(self, mode):
         rows = self.db.q("SELECT visitPurposeID, visitPurposeName FROM ms_visitpurpose") \
             if self.db.columns("ms_visitpurpose") else []
@@ -207,17 +256,26 @@ class Agent:
             "SELECT tableID, tableName FROM ms_table WHERE tableName = %s AND flagActive = 1",
             (esb_name,))
 
-    def resolve_menu(self, item):
-        """menuCode first (the stable, user-editable key), menuName as fallback."""
+    MENU_COLS = "menuID, menuName, price, flagTax, flagOtherTax, flagLuxuryItem"
+
+    def resolve_menu(self, item, template_id=None):
+        """menuCode first (the stable, user-editable key), menuName as fallback.
+        Price comes from the visit purpose's menu template when available."""
         code = (item.get("menu_code") or "").strip()
+        r = None
         if code:
-            r = self.one("SELECT menuID, menuName, price FROM ms_menu "
-                         "WHERE menuCode = %s AND flagActive = 1", (code,))
-            if r:
-                return r
-        name = (item.get("menu_name") or "").strip()
-        r = self.one("SELECT menuID, menuName, price FROM ms_menu "
-                     "WHERE LOWER(menuName) = LOWER(%s) AND flagActive = 1", (name,))
+            r = self.one("SELECT %s FROM ms_menu WHERE menuCode = %%s AND flagActive = 1"
+                         % self.MENU_COLS, (code,))
+        if not r:
+            name = (item.get("menu_name") or "").strip()
+            r = self.one("SELECT %s FROM ms_menu WHERE LOWER(menuName) = LOWER(%%s) "
+                         "AND flagActive = 1" % self.MENU_COLS, (name,))
+        if r and template_id and self.db.columns("ms_menutemplatedetail"):
+            tp = self.one("SELECT price FROM ms_menutemplatedetail "
+                          "WHERE menuTemplateID = %s AND menuID = %s AND flagActive = 1",
+                          (template_id, r["menuID"]))
+            if tp and float(tp["price"] or 0) > 0:
+                r = dict(r, price=tp["price"])
         return r
 
     def derive_brand_code(self):
@@ -304,11 +362,19 @@ class Agent:
             raise
 
     def txn_b_save(self, cmd, sales_num):
-        """Insert the order lines and update the head totals. Returns batch id."""
+        """Insert the order lines with ESB tax math and refresh the head totals.
+
+        Tax model (vendor CalculateTotal.php + map_branchvisitpurpose):
+          other tax (service) % applies per line when the menu has flagOtherTax;
+          VAT % applies when the menu has flagTax; when flagOtherTaxVat the VAT
+          base (DPP) includes the other tax; non-luxury DPP is scaled by the
+          "VAT / DPP Calculation Ratio" setting; head rounding per POS settings.
+        """
+        tp = self.tax_params(cmd["mode"])
         # Resolve every item BEFORE writing anything (whole order or nothing).
         resolved = []
         for it in cmd["items"]:
-            r = self.resolve_menu(it)
+            r = self.resolve_menu(it, tp["menuTemplateID"])
             if not r:
                 raise RuntimeError("menu not found in ms_menu (code=%r name=%r) — fix menuCode mapping"
                                    % (it.get("menu_code"), it.get("menu_name")))
@@ -322,11 +388,16 @@ class Agent:
                 cur.execute("SELECT COALESCE(MAX(batchID),0)+1 AS b FROM tr_salesmenu "
                             "WHERE salesNum = %s FOR UPDATE", (sales_num,))
                 batch = int(cur.fetchone()["b"])
-                add_total = 0.0
                 for i, (menu, it, price) in enumerate(resolved):
                     qty = max(1, int(it.get("qty") or 1))
                     line_total = price * qty
-                    add_total += line_total
+                    other_pct = tp["additionalTaxValue"] if int(menu.get("flagOtherTax") or 0) else 0.0
+                    other_val = line_total * other_pct / 100.0
+                    vat_pct = tp["taxValue"] if int(menu.get("flagTax") or 0) else 0.0
+                    dpp = line_total + (other_val if tp["flagOtherTaxVat"] else 0.0)
+                    if not int(menu.get("flagLuxuryItem") or 0):
+                        dpp *= tp["dppRatio"]
+                    vat_val = dpp * vat_pct / 100.0
                     self.db.insert(cur, "tr_salesmenu", {
                         "localID": i + 1,
                         "salesNum": sales_num,
@@ -335,6 +406,9 @@ class Agent:
                         "menuID": menu["menuID"],
                         "qty": qty,
                         "originalPrice": price, "price": price,
+                        "otherTax": other_pct, "otherTaxValue": other_val,
+                        "vat": vat_pct, "vatValue": vat_val,
+                        "otherTaxOnVat": tp["flagOtherTaxVat"],
                         "total": line_total,
                         "notes": (it.get("notes") or "")[:200],
                         "statusID": 13,          # Preparing
@@ -342,12 +416,24 @@ class Agent:
                         "salesType": "POS",
                         "createdBy": self.cashier, "createdDate": now_s(),
                     })
-                # Demo-grade money update: tax-exclusive (see module docstring).
+                # Refresh the head from the line aggregates (correct across batches).
                 cur.execute(
-                    "UPDATE tr_saleshead SET subtotal = subtotal + %s, "
-                    "grandTotal = grandTotal + %s, editedBy = %s, editedDate = %s "
-                    "WHERE salesNum = %s",
-                    (add_total, add_total, self.cashier, now_s(), sales_num))
+                    "SELECT COALESCE(SUM(total),0) st, COALESCE(SUM(otherTaxValue),0) ot, "
+                    "COALESCE(SUM(vatValue),0) vt FROM tr_salesmenu "
+                    "WHERE salesNum = %s AND statusID NOT IN (12, 24)", (sales_num,))
+                agg = cur.fetchone()
+                subtotal = float(agg["st"])
+                other_tax = float(agg["ot"])
+                vat_total = float(agg["vt"])
+                raw_grand = subtotal + other_tax + vat_total + tp["orderFee"]
+                grand = self.apply_rounding(raw_grand, tp["roundNearest"], tp["roundMode"])
+                rounding = grand - raw_grand
+                cur.execute(
+                    "UPDATE tr_saleshead SET subtotal = %s, otherTaxTotal = %s, vatTotal = %s, "
+                    "orderFee = %s, roundingTotal = %s, grandTotal = %s, "
+                    "editedBy = %s, editedDate = %s WHERE salesNum = %s",
+                    (subtotal, other_tax, vat_total, tp["orderFee"], rounding, grand,
+                     self.cashier, now_s(), sales_num))
             conn.commit()
             return batch
         except Exception:

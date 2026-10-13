@@ -49,8 +49,15 @@ order in one transaction, idempotent per Hong Chiang order number.
 Never writes: `billNum`, payments, kitchen/queue/websocket/stock tables —
 those belong to the POS. Settlement is detected read-only and reported back.
 
-Note (demo-grade): totals are written tax-exclusive. Wire the
-esb-pos-data-structure money rules before production use at a taxed branch.
+Tax math mirrors the vendor `CalculateTotal.php`: per-line other tax (service)
+and VAT driven by `map_branchvisitpurpose` (`taxValue`, `additionalTaxValue`,
+`flagOtherTaxVat`) and the menu flags (`flagTax`, `flagOtherTax`,
+`flagLuxuryItem`), DPP ratio and rounding from `ms_setting`, prices from the
+visit purpose's menu template. Verified: untaxed menus produce the exact row
+shape of real POS sales; with VAT 10% + service 5%, 2×29.000 → subtotal
+58.000, service 2.900, VAT 6.090 (on subtotal+service), grand 66.990.
+Discounts/promotions/vouchers are not written by the bridge (cashier applies
+them on the POS at settle time).
 
 ## Linux alternative
 
