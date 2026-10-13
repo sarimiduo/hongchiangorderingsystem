@@ -143,3 +143,46 @@ test('apphong: /api/menu serves the ESB catalog synced on midhong', async () => 
   assert.ok(m.body.store && m.body.store.name, 'store info still comes from the local file');
   assert.equal(m.body.meals[0].menu_code, 'ET');
 });
+
+// ------------------------------------------------- apphong alone, midhong down
+const { spawn } = require('child_process');
+const pathMod = require('path');
+
+async function spawnApp(env) {
+  const child = spawn(process.execPath, [pathMod.join(__dirname, '..', 'server', 'index.js')], {
+    env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  await new Promise((resolve, reject) => {
+    child.stdout.on('data', d => { if (/listening on/.test(String(d))) resolve(); });
+    child.stderr.on('data', d => { if (/missing required env/.test(String(d))) reject(new Error(String(d))); });
+    child.on('exit', c => reject(new Error('exited ' + c)));
+  });
+  return child;
+}
+
+test('apphong refuses to start without BRIDGE_URL/BRIDGE_TOKEN', async () => {
+  const env = { ...process.env }; delete env.BRIDGE_URL; delete env.BRIDGE_TOKEN;
+  const child = spawn(process.execPath, [pathMod.join(__dirname, '..', 'server', 'index.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let err = ''; child.stderr.on('data', d => err += d);
+  const code = await new Promise(r => child.on('exit', r));
+  assert.equal(code, 1);
+  assert.match(err, /BRIDGE_URL, BRIDGE_TOKEN/);
+});
+
+test('apphong with midhong down: checkout succeeds, status shows pending_push, proxies answer 503', async () => {
+  const appPort = await freePort(), deadPort = await freePort();
+  const child = await spawnApp({ PORT: String(appPort), BRIDGE_URL: `http://127.0.0.1:${deadPort}`, BRIDGE_TOKEN: 't-bridge' });
+  try {
+    const APP = `http://127.0.0.1:${appPort}`;
+    const menu = (await j(`${APP}/api/menu`)).body;
+    assert.equal(menu.source, 'local', 'falls back to the local catalog');
+    const co = await post(`${APP}/api/checkout`, { type: 'walkin', guest_count: 1, meals: [{ meal_id: menu.meals[0].meal_id, quantity: 1 }] });
+    assert.equal(co.code, 200); assert.equal(co.body.status, true); assert.equal(co.body.data.bridge_pushed, false);
+    const st = await j(`${APP}/api/bridge/status?order_no=${co.body.data.order_no}`);
+    assert.equal(st.code, 200); assert.equal(st.body.stage, 'queued'); assert.equal(st.body.pending_push, true);
+    const ov = await j(`${APP}/api/bridge/overview`);
+    assert.equal(ov.code, 503); assert.deepEqual(ov.body.commands, []);
+    const unknown = await j(`${APP}/api/bridge/status?order_no=NOPE`);
+    assert.equal(unknown.code, 503);
+  } finally { child.kill(); }
+});
