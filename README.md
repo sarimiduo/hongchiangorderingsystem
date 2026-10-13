@@ -1,3 +1,4 @@
+<!-- hello from Hongchi -->
 # Hong Chiang Ordering System
 
 An ESB-Order-style self-ordering web app ("app simulation") built on top of the
