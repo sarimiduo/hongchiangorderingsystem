@@ -7,7 +7,7 @@
     "start": "node server/index.js",
     "start:mid": "node server/mid.js",
     "dev": "node server/dev.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=18"
