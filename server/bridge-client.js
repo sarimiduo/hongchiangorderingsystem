@@ -51,17 +51,28 @@ async function pushOrder(ctx) {
   }
 }
 
-/** Retry everything in the outbox once. Returns how many are still pending. */
+/** Retry everything in the outbox once. Returns how many are still pending.
+ * Only one flush runs at a time: the 5 s interval can fire while a previous
+ * flush is still waiting on a hanging midhong, and two flushes over the same
+ * items would deliver twice and remove the wrong entries. */
+let flushing = false;
 async function flushOutbox() {
-  for (const item of [...outbox]) {
-    try {
-      await call('POST', '/api/bridge/orders', item.ctx);
-      outbox.splice(outbox.indexOf(item), 1);
-      console.log(`[bridge-client] push ${item.ctx.order_no} delivered after ${item.attempts} failed attempt(s)`);
-    } catch (e) {
-      item.attempts++;
-      item.last_error = e.message;
+  if (flushing) return outbox.length;
+  flushing = true;
+  try {
+    for (const item of [...outbox]) {
+      try {
+        await call('POST', '/api/bridge/orders', item.ctx);
+        const i = outbox.indexOf(item);
+        if (i >= 0) outbox.splice(i, 1);
+        console.log(`[bridge-client] push ${item.ctx.order_no} delivered after ${item.attempts} failed attempt(s)`);
+      } catch (e) {
+        item.attempts++;
+        item.last_error = e.message;
+      }
     }
+  } finally {
+    flushing = false;
   }
   return outbox.length;
 }
@@ -91,19 +102,26 @@ async function status(orderNo) {
 
 function overview() { return call('GET', '/api/bridge/overview'); }
 
-/** ESB-synced catalog from midhong, or null (no sync yet / midhong down). Cached 30 s. */
+/** ESB-synced catalog from midhong, or null (no sync yet). Cached 30 s.
+ * While midhong is unreachable the last catalog it served stays in use, so
+ * meal ids the customer already loaded still resolve at checkout (the push
+ * itself waits in the outbox). */
+let lastGoodMenu = null;
 async function menu() {
   if (Date.now() - menuCache.at < MENU_CACHE_MS) return menuCache.value;
   let value = null;
   try {
     const m = await call('GET', '/api/bridge/menu');
     if (m && m.source === 'esb') value = m;
+    lastGoodMenu = value;
   } catch (e) {
-    console.error('[bridge-client] menu fetch failed: ' + e.message);
+    console.error('[bridge-client] menu fetch failed: ' + e.message + (lastGoodMenu ? ' — serving the last synced catalog' : ''));
+    value = lastGoodMenu;
   }
   menuCache = { at: Date.now(), value };
   return value;
 }
+/** Force the next menu() call to ask midhong again (keeps the last-good fallback). */
 function resetMenuCache() { menuCache = { at: 0, value: null }; }
 
 module.exports = { pushOrder, flushOutbox, status, overview, menu, resetMenuCache, outbox, BridgeDown, BRIDGE_URL };

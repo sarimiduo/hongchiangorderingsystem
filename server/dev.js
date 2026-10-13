@@ -19,6 +19,7 @@ if (fs.existsSync(envFile)) {
 }
 const PORT = env.PORT || '3000';
 const MID_PORT = env.MID_PORT || '3100';
+const devTokens = !env.BRIDGE_TOKEN && !env.AGENT_TOKEN;
 Object.assign(env, {
   PORT, MID_PORT,
   BRIDGE_URL: env.BRIDGE_URL || `http://127.0.0.1:${MID_PORT}`,
@@ -37,4 +38,5 @@ function run(name, file) {
 }
 const kids = [run('midhong', 'mid.js'), run('apphong', 'index.js')];
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { kids.forEach(k => k.kill()); process.exit(0); });
-console.log(`dev: app http://localhost:${PORT}  ·  bridge monitor http://localhost:${MID_PORT}  (AGENT_TOKEN=${env.AGENT_TOKEN})`);
+// Never echo token values: on the VPS this banner would carry the production secrets.
+console.log(`dev: app http://localhost:${PORT}  ·  bridge monitor http://localhost:${MID_PORT}  (tokens: ${devTokens ? 'dev defaults — agent token is dev-agent-token' : 'from env/.env'})`);
