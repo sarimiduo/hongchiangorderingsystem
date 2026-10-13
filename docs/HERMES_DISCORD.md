@@ -10,6 +10,16 @@ the answer back. By default it drives the **Claude Code CLI** (`claude`); you
 can point `AGENT_CMD` at any agent CLI you prefer (e.g. a Nous Hermes-based
 agent) — anything that accepts a prompt and prints a result works.
 
+**Live progress:** when the agent is the Claude CLI, the bridge adds
+`--output-format stream-json --verbose` and relays the agent's work as it
+happens — every narration line and every tool call (`⚙️ Bash — …`,
+`⚙️ Edit — server/bridge.js`, …) is appended to a rolling status message in
+the channel (edited in place, batched every ~2s to respect rate limits), and
+the final answer is posted as a normal reply. Control it with `AGENT_STREAM`
+in `hermes/.env`: unset = auto (on for `claude`, off otherwise), `0` = silent
+buffer-until-done, `1` = force streaming for a custom `AGENT_CMD` that
+accepts the same flags.
+
 ## Step 1 — install the agent on the VPS
 
 ```bash
