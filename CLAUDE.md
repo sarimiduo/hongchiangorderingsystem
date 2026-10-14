@@ -34,6 +34,7 @@ server/dev.js          runs both processes locally
 server/kds-mock.js     faithful mock of the Hong-Chiang KDS API + createOrder() sim hook
 server/data/menu.json  local menu catalog (fallback; ESB-synced menu overrides it)
 public/                SPA (index.html, css/app.css, js/app.js — hash router, no build step)
+public/img/            found, credited pictures + the footer clip (credits.json = licences; see "UI design")
 public-mid/            midhong's standalone monitor page (served on midhong "/")
 test/                  node:test suites; test/journey.test.js boots both servers in-process
 agent/hc_bridge_agent.py  the mini-PC agent (PyMySQL). agent.ini is GITIGNORED (secrets)
@@ -41,7 +42,8 @@ agent/README.md        agent setup (Windows Task Scheduler / Linux)
 hermes/bot.js          Discord ⇄ agent bridge (this is how you are being driven)
 deploy/                nginx + systemd units (hongchiang = apphong, hongchiang-mid = midhong)
 docs/                  deep docs: DEPLOYMENT, VPS_GIT, HERMES_DISCORD,
-                       ESB_BRIDGE_ANALYSIS, HC_ESB_SQL_BRIDGE_DESIGN
+                       ESB_BRIDGE_ANALYSIS, HC_ESB_SQL_BRIDGE_DESIGN,
+                       E2E_TEST_CHECKLIST (manual acceptance test, app→mid→agent→ESB)
 docs/superpowers/      design specs + implementation plans (midhong split)
 VPS_SETUP.md           full VPS provisioning runbook
 ```
@@ -69,6 +71,27 @@ port 3000) and `https://midhong.berkatselalu.com` (midhong, unit
 `hongchiang-mid`, port 3100) — VPS path `/var/www/hongchiangorderingsystem`,
 nginx reverse proxies, certbot SSL. Deploy = `git pull` +
 `systemctl restart hongchiang hongchiang-mid`.
+
+## UI design (apphong SPA, redesigned 2026-10-14 with the `design-taste-frontend` skill)
+
+Idea: the Taiwanese paper 點餐單 (tick-sheet) is the interface — the menu is the sheet,
+the slip fills as you tick, the status screen is the finished slip with the table number
+huge in red. Direction "the split stage" (seed 1729440213): paper sheet column + sticky
+photo panel (`.stage > .sheet + .still`), single column under 900px. Tokens in
+`public/css/app.css` `:root` (ground white, surface #ebebea, ink, muted, accent red only
+on the primary button and the table number). Type: Besley 800 (display) + Libre
+Franklin (text), Noto Serif/Sans TC for CJK glyphs. House rules: no emoji, gradients,
+shadows at rest, hairlines, pill badges, eyebrow labels. Pictures in `public/img/` are
+open-collection finds (Wikimedia Commons, CC0/BY/BY-SA, credited in the home footer,
+`credits.json`); they show the world around the canteen, never its own dishes.
+Deep links: `#/menu?mode=dinein&table=5` (QR on a table), `#/menu?mode=walkin`,
+`#/status?order_no=ORD…`. Design notes + critique: `.taste-skill/notes.md`.
+Gate (Node 20 on the VPS): `node --experimental-websocket <skill>/scripts/inspect.mjs
+http://127.0.0.1:3005/ --out .taste-skill/inspect-home` with
+`CHROME_PATH=~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` and
+`CHROME_ARGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"`; run the dev copy on
+spare ports first (`PORT=3005 MID_PORT=3105 BRIDGE_URL=http://127.0.0.1:3105
+APP_URL=http://127.0.0.1:3005 node server/dev.js`) so nothing leaks into the live queue.
 
 ## Fact sheet 1 — Hong-Chiang KDS API v2.0.1
 

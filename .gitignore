@@ -6,3 +6,9 @@ data/runtime/
 __pycache__/
 agent/agent.ini
 agent_state.json
+
+# superpowers SDD workspace (ledger, briefs)
+.superpowers/
+
+# tasteskill inspector output (screenshots); direction.json + notes.md stay tracked
+.taste-skill/inspect*/

@@ -39,8 +39,8 @@ const KDS_PATHS = new Set(['walkIns/get', 'tables/search', 'orders/details', 're
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.webm': 'video/webm', '.mp4': 'video/mp4', '.woff2': 'font/woff2',
 };
 
 /** The menu the app serves: ESB-synced catalog (from midhong) wins over the local file. */

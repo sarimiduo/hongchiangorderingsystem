@@ -1,30 +1,63 @@
 'use strict';
-/* Hong Chiang Ordering — ESB-style self-ordering SPA.
- * Journey: home → (dine-in: table + pax | takeout) → menu → cart → Save Order → status (pay at cashier).
- * Backed by the Hong-Chiang KDS API via /api/kds/* (tables/search, orders/details,
- * walkIns/get, reservations/update, walkIns/update) + the app's own menu/checkout.
+/* Hong Chiang Ordering — the order sheet (點餐單) as the interface.
+ * Journey: home → (dine-in: table + pax | takeout) → menu (the sheet) → slip → Save Order → status (pay at the cashier).
+ * Backed by the Hong-Chiang KDS API via /api/kds/* (tables/search, orders/details, walkIns/get)
+ * plus the app's own /api/menu, /api/checkout and /api/bridge/* (proxied from midhong).
  */
 
 const $app = document.getElementById('app');
 const $sheet = document.getElementById('sheet-root');
 const $toast = document.getElementById('toast-root');
+const CALM = matchMedia('(prefers-reduced-motion: reduce)');
 
 const S = {
   config: null,
   menu: null,
-  session: load('hc_session', { mode: null, table: null, pax: null }),
+  session: load('hc_session', { mode: null, table: null, pax: null, note: '' }),
   cart: load('hc_cart', []),
   lastOrder: load('hc_last_order', null),
-  statusTimer: null,
+  timers: [],
+  observers: [],
 };
 
+/* Real pictures of this subject's world, found in the open collections and downloaded into /img
+ * (credits in FOOTER_CREDITS). They show the world around the canteen, never its own dishes. */
+const PHOTOS = {
+  sign:   { src: '/img/noodle-shop-sign.jpg',     w: 1200, h: 1800, pos: '50% 45%', cap: 'Shop signs, Changhua',
+            alt: 'Lit shop signs with red brush characters over a street at dusk, Changhua, Taiwan' },
+  street: { src: '/img/yongkang-noodle-shop.jpg', w: 1600, h: 1092, pos: '20% 50%', cap: 'Yongkang Street, Taipei',
+            alt: 'A noodle shop front on Yongkang Street, Taipei, on a wet afternoon' },
+  tea:    { src: '/img/pearl-milk-tea.jpg',       w: 1200, h: 1600, pos: '50% 60%', cap: 'Pearl milk tea, Taichung',
+            alt: 'A tall glass of pearl milk tea on a wooden table beside an order slip' },
+  noodle: { src: '/img/beef-noodle-soup.jpg',     w: 1600, h: 1198, pos: '50% 50%', cap: 'Beef noodle soup, Taipei',
+            alt: 'A spoon lifting beef and tendon from a bowl of red-braised beef noodle soup' },
+  robot:  { src: '/img/delivery-robot.jpg',       w: 1200, h: 1243, pos: '50% 50%', cap: 'Delivery robot, family restaurant, Chiba',
+            alt: 'A yellow delivery robot carrying two trays of food between restaurant tables' },
+};
+const FOOTER_CREDITS = 'Pictures: '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=29127725">“Shop sign of the Cat Mouse Noodles, Changhua”</a> by Mk2010, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; '
+  + '<a href="https://commons.wikimedia.org/wiki/File:TW_%E5%8F%B0%E7%81%A3_Taiwan_%E5%8F%B0%E5%8C%97_Taipei_%E6%B0%B8%E5%BA%B7%E8%A1%97_10_YongKang_Street_%E5%8F%B0%E7%81%A3%E4%B8%80%E5%93%81_noodle_shop_March_2024_R12S_03.jpg">“Yongkang Street noodle shop, Taipei, 2024”</a> by MAm ROFOW 022, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=148903552">“Pearl Milk Tea in Chun Shui Tang”</a> by Battlesnake1, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=142538801">“Taiwanese Beef Noodle Soup from 穆記牛肉麵, Taipei”</a> by midnightbreakfastcafe, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>; '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=151258187">“Delivery robot at family restaurant in Chiba”</a> by Syced, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. '
+  + 'Footage: <a href="https://commons.wikimedia.org/wiki/File:Hualien-taiwan-nightmarket2011.ogv">“Hualien night market, 2011”</a> by Nesnad, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>. All via Wikimedia Commons.';
+
+const BRIDGE_STAGES = [
+  ['queued', 'Sent to the till bridge'],
+  ['picked_up', 'Picked up by the branch agent'],
+  ['table_opened', 'Table opened on the ESB till'],
+  ['order_saved', 'Order saved, table marked occupied'],
+  ['waiting_cashier', 'Waiting for the cashier'],
+  ['settled', 'Bill settled'],
+];
+
+/* ------------------------------------------------------------------ helpers */
 function load(k, d) { try { return JSON.parse(sessionStorage.getItem(k)) ?? d; } catch { return d; } }
 function save() {
   sessionStorage.setItem('hc_session', JSON.stringify(S.session));
   sessionStorage.setItem('hc_cart', JSON.stringify(S.cart));
   sessionStorage.setItem('hc_last_order', JSON.stringify(S.lastOrder));
 }
-
 async function api(path, body, method) {
   const res = await fetch('/api/' + path, {
     method: method || (body !== undefined ? 'POST' : 'GET'),
@@ -33,7 +66,6 @@ async function api(path, body, method) {
   });
   return res.json();
 }
-
 function fmt(n) {
   const cur = (S.config && S.config.currency) || 'Rp';
   return cur + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -45,191 +77,350 @@ function toast(msg) {
   $toast.appendChild(el);
   setTimeout(() => el.remove(), 2200);
 }
+function cjk(s) { const m = String(s || '').match(/[㐀-鿿][㐀-鿿\s]*/); return m ? m[0].trim() : ''; }
+function word(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+function norm(s) { return String(s || '').trim().toLowerCase().replace(/^(table|meja|t)\s*/, ''); }
+function hours() { return (S.menu && S.menu.store && S.menu.store.hours) || 'Open today 10:00–22:00'; }
 
 function mealById(id) { return S.menu.meals.find(m => m.meal_id === Number(id)); }
-function catName(id) { return (S.menu.categories.find(c => c.id === id) || {}).name || ''; }
-function tile(meal, cls, withZh) {
-  const zh = withZh ? `<div class="zhname">${esc(meal.meal_name.split(' ')[0])}</div>` : '';
-  return `<div class="${cls}" style="background:linear-gradient(145deg,${meal.color1},${meal.color2})">${zh}${meal.emoji}</div>`;
-}
-
 function cartCount() { return S.cart.reduce((s, i) => s + i.qty, 0); }
+function cartQty(mealId) { return S.cart.filter(i => i.meal_id === Number(mealId)).reduce((s, i) => s + i.qty, 0); }
 function itemPrice(i) { const m = mealById(i.meal_id); return (m.price + i.options_price) * i.qty; }
 function cartSubtotal() { return S.cart.reduce((s, i) => s + itemPrice(i), 0); }
 function serviceFee() { return Math.round(cartSubtotal() * 0.1); }
 function cartTotal() { return cartSubtotal() + serviceFee(); }
 
+/* ------------------------------------------------------------------- motion */
+function startCrossfade(fig, every = 5500) {
+  if (!fig) return;
+  const imgs = [...fig.querySelectorAll('img')];
+  if (imgs.length < 2 || CALM.matches) return;
+  let i = imgs.findIndex(im => im.classList.contains('is-on')); if (i < 0) i = 0;
+  const step = () => {
+    if (document.hidden || fig.dataset.hold) return;
+    imgs[i].classList.remove('is-on'); i = (i + 1) % imgs.length; imgs[i].classList.add('is-on');
+  };
+  const first = setTimeout(step, 2200);
+  const t = setInterval(step, every);
+  S.timers.push(t, first);
+}
+function showPhoto(fig, key) {
+  if (!fig) return;
+  fig.querySelectorAll('img').forEach(im => im.classList.toggle('is-on', im.dataset.key === key));
+}
+function reveal(root) {
+  const els = [...(root || $app).querySelectorAll('[data-reveal]:not(.is-in)')];
+  if (!els.length) return;
+  const io = new IntersectionObserver(es => {
+    for (const e of es) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+  els.forEach(el => io.observe(el));
+  S.observers.push(io);
+}
+function calmVideos() {
+  for (const v of document.querySelectorAll('video[autoplay]')) {
+    const sync = () => { if (CALM.matches) { v.removeAttribute('autoplay'); v.pause(); } else { v.play().catch(() => {}); } };
+    sync(); CALM.addEventListener('change', sync);
+  }
+}
+
+/* ---------------------------------------------------------------- fragments */
+const WORDMARK = `<a class="wordmark" href="#/">Hong Chiang <span lang="zh-Hant">鴻匠</span></a>`;
+function topnav(left, right) { return `<nav class="topnav" aria-label="Top">${left}${WORDMARK}${right}</nav>`; }
+function photoStack(keys, { eager } = {}) {
+  return `<figure class="photos" data-photos="${keys.join(',')}">${keys.map((k, i) => {
+    const p = PHOTOS[k];
+    return `<img src="${p.src}" width="${p.w}" height="${p.h}" alt="${esc(p.alt)}" style="object-position:${p.pos}" class="${i === 0 ? 'is-on' : ''}" data-key="${k}" ${i === 0 && eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+  }).join('')}</figure>`;
+}
+function hoursBar(right) { return `<div class="hours" data-rise style="--i:2"><span>${esc(hours())}</span><span>${right || 'Pay at the counter'}</span></div>`; }
+function slipDemo() {
+  return `<div class="slipdemo" data-ui data-state="1" aria-hidden="true">
+    <div class="sd-head"><span class="sd-table">5</span><span class="sd-meta">Table 桌號<br>2 orang</span></div>
+    <ul class="sd-lines"><li><span>2 × 滷肉飯 Braised Pork Rice</span><span>Rp71.818</span></li><li><span>1 × 珍珠奶茶 Bubble Milk Tea</span><span>Rp22.727</span></li></ul>
+    <p class="sd-empty">Nothing ticked yet</p>
+    <dl class="sd-sum"><div><dt>Subtotal</dt><dd>Rp94.545</dd></div><div><dt>Service 10%</dt><dd>Rp9.455</dd></div><div class="tot"><dt>Total</dt><dd>Rp104.000</dd></div></dl>
+    <div class="sd-stamp">Paid 已付<small>bill 2026101400017</small></div>
+  </div>`;
+}
+function footer() {
+  return `<footer class="foot">
+    <img class="foot-img" src="/img/night-market-poster.jpg" width="1280" height="720" alt="" loading="lazy" decoding="async">
+    <video autoplay muted loop playsinline preload="metadata" poster="/img/night-market-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/night-market.webm" type="video/webm"></video>
+    <div class="foot-top">
+      <nav aria-label="Pages"><a href="#/tables">Dine-in</a><a href="#/menu?mode=walkin">Takeout</a><a href="#/takeout">Takeout board</a><a href="#/bridge">Bridge monitor</a></nav>
+      <p>${esc(hours())}<br>Pay at the counter</p>
+    </div>
+    <div>
+      <p class="foot-name" aria-hidden="true">Hong Chiang <span lang="zh-Hant">鴻匠</span></p>
+      <p class="credits">${FOOTER_CREDITS}</p>
+    </div>
+  </footer>`;
+}
+
 /* ------------------------------------------------------------------ router */
 const routes = {
   '': renderHome, home: renderHome, tables: renderTables, menu: renderMenu,
-  cart: renderCart, status: renderStatus, takeout: renderTakeout,
-  bridge: renderBridge,
+  cart: renderCart, status: renderStatus, takeout: renderTakeout, bridge: renderBridge,
 };
 function go(r) { location.hash = '#/' + r; }
+function cleanup() {
+  S.timers.forEach(clearInterval); S.timers = [];
+  S.observers.forEach(o => o.disconnect()); S.observers = [];
+  $sheet.innerHTML = '';
+}
 window.addEventListener('hashchange', route);
 function route() {
-  clearInterval(S.statusTimer);
-  $sheet.innerHTML = '';
-  const name = (location.hash.replace(/^#\//, '') || '').split('?')[0];
-  (routes[name] || renderHome)();
+  cleanup();
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [name, qs] = raw.split('?');
+  const q = new URLSearchParams(qs || '');
+  if (q.get('mode')) { // deep link, e.g. a QR code on the table: #/menu?mode=dinein&table=5
+    S.session.mode = q.get('mode') === 'dinein' ? 'dinein' : 'walkin';
+    if (S.session.mode === 'walkin') { S.session.table = null; S.session.pax = null; }
+    else if (q.get('table')) S.session.table = { id: Number(q.get('table_id')) || null, name: q.get('table') };
+    if (q.get('pax')) S.session.pax = q.get('pax');
+    save();
+  }
+  (routes[name] || renderHome)(q);
   window.scrollTo(0, 0);
 }
 
-/* ------------------------------------------------------------------- home */
+/* -------------------------------------------------------------------- home */
 function renderHome() {
   $app.innerHTML = `
-    <div class="home-hero">
-      <div class="logo">🥡</div>
-      <h1>${esc(S.menu.store.name)}</h1>
-      <p>${esc(S.menu.store.tagline)} · ${esc(S.menu.store.hours)}</p>
+    <div class="stage home">
+      <aside class="still" id="still" data-show="photo">
+        ${photoStack(['sign', 'street', 'tea', 'noodle'], { eager: true })}
+        <div class="stage-slip">${slipDemo()}</div>
+        ${hoursBar()}
+      </aside>
+      <section class="sheet">
+        ${topnav(`<a href="#/menu?mode=walkin">Takeout</a>`, `<a href="#/takeout">Board</a>`)}
+        <div class="hero">
+          <h1 class="head" data-rise style="--i:0">Order here,<br>pay at the counter</h1>
+          <p class="lead" data-rise style="--i:1">Tick the dishes you want. The kitchen starts at once, and the cashier settles your bill when you are done.</p>
+          <a class="button" href="#/tables" data-rise style="--i:2">Order dine-in</a>
+          <a class="link" href="#/menu?mode=walkin" data-rise style="--i:3">Order for takeout</a>
+        </div>
+        <section class="howit" id="howit" aria-labelledby="howit-h">
+          <h2 class="lead-h" id="howit-h">How the sheet works</h2>
+          <ol class="statements">
+            <li data-step="1"><p class="statement">Tick the sheet.</p><p>Every dish on the menu has a box. Tap it and the line is on your slip, with its price beside it.</p></li>
+            <li data-step="2"><p class="statement">The kitchen cooks.</p><p>Your slip goes straight to the kitchen display and to the till. The tray comes to your table.</p></li>
+            <li data-step="3"><p class="statement">Pay at the counter.</p><p>Show the cashier your table number. When the bill is settled, your slip is stamped paid.</p></li>
+          </ol>
+        </section>
+        <section class="tablefield" aria-labelledby="tf-h">
+          <p class="prompt" id="tf-h"><span class="muted">Which table are you at?</span><br>Type the number on your table stand</p>
+          <form id="table-form" autocomplete="off">
+            <label class="sr-only" for="table-input">Table number</label>
+            <input class="field" id="table-input" inputmode="numeric" placeholder="5">
+            <button class="go" type="submit" aria-label="Check the table">→</button>
+          </form>
+          <p class="after small" id="table-msg">We check it against the floor plan before you order.</p>
+          <dl class="facts">
+            <div><dt>Hours</dt><dd>${esc(hours())}</dd></div>
+            <div><dt>Takeout</dt><dd><a href="#/menu?mode=walkin">Order and collect at the counter</a></dd></div>
+            <div><dt>Floor plan</dt><dd><a href="#/tables">Pick a table from the list</a></dd></div>
+          </dl>
+        </section>
+      </section>
     </div>
-    <div class="wrap mt16">
-      <button class="mode-btn" id="btn-dinein">
-        <span class="ic">🍽️</span>
-        <span><b>Dine In 內用</b><p>Choose your table & order from your seat</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="mode-btn" id="btn-takeout">
-        <span class="ic">🥤</span>
-        <span><b>Takeout 外帶</b><p>Order now, pick up at the counter</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="mode-btn" id="btn-board">
-        <span class="ic">📋</span>
-        <span><b>Takeout Board</b><p>Live walk-in queue from the KDS</p></span>
-        <span class="chev">›</span>
-      </button>
-      <button class="mode-btn" id="btn-bridge">
-        <span class="ic">🔁</span>
-        <span><b>Bridge Monitor</b><p>Orders flowing to the ESB POS via the middleware</p></span>
-        <span class="chev">›</span>
-      </button>
-      <p class="center muted">Powered by Hong-Chiang KDS API v2.0.1 · ${esc(S.config.kds_mode)} mode</p>
-    </div>`;
-  document.getElementById('btn-dinein').onclick = () => { S.session.mode = 'dinein'; save(); go('tables'); };
-  document.getElementById('btn-takeout').onclick = () => { S.session.mode = 'walkin'; S.session.table = null; S.session.pax = null; save(); go('menu'); };
-  document.getElementById('btn-board').onclick = () => go('takeout');
-  document.getElementById('btn-bridge').onclick = () => go('bridge');
+    ${footer()}`;
+
+  startCrossfade(document.querySelector('#still .photos'));
+  howitObserver();
+  tableForm();
+  calmVideos();
+}
+
+function howitObserver() {
+  const still = document.getElementById('still');
+  const lis = [...document.querySelectorAll('.statements li')];
+  const demos = [...document.querySelectorAll('.slipdemo')];
+  const mid = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      lis.forEach(l => l.classList.toggle('is-active', l === e.target));
+      demos.forEach(d => { d.dataset.state = e.target.dataset.step; });
+    });
+  }, { rootMargin: '-40% 0px -40% 0px', threshold: 0 });
+  lis.forEach(l => mid.observe(l));
+  const sec = new IntersectionObserver(es => {
+    es.forEach(e => { still.dataset.show = e.isIntersecting ? 'slip' : 'photo'; });
+  }, { rootMargin: '-30% 0px -30% 0px', threshold: 0 });
+  sec.observe(document.getElementById('howit'));
+  S.observers.push(mid, sec);
+}
+
+function tableForm() {
+  const form = document.getElementById('table-form');
+  const input = document.getElementById('table-input');
+  const msg = document.getElementById('table-msg');
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const want = norm(input.value);
+    if (!want) { input.focus(); return; }
+    msg.textContent = 'Checking the floor plan…';
+    const out = await api('kds/tables/search', {});
+    if (!out.status) { msg.textContent = 'The kitchen display did not answer. Pick a table from the list instead.'; return; }
+    const t = out.data.find(x => norm(x.name) === want);
+    const free = out.data.filter(x => x.status === 'IDLE').map(x => esc(x.name)).join(', ') || 'none';
+    if (!t) { msg.innerHTML = `There is no table ${esc(input.value)} on the floor plan. Free now: ${free}.`; return; }
+    if (t.status !== 'IDLE') { msg.innerHTML = `Table ${esc(t.name)} is taken right now. Free now: ${free}.`; return; }
+    S.session.mode = 'dinein'; S.session.table = { id: t.id, name: t.name }; save();
+    msg.textContent = `Table ${t.name} is free.`;
+    paxSheet();
+  };
 }
 
 /* ------------------------------------------------------------- table pick */
 async function renderTables() {
   $app.innerHTML = `
-    <div class="topbar"><button class="back" onclick="history.back()">←</button><h1>Choose Your Table</h1></div>
-    <div class="wrap"><div class="center mt16"><span class="spin"></span></div></div>`;
-  const out = await api('kds/tables/search', {});
-  if (!out.status) { $app.querySelector('.wrap').innerHTML = `<p class="center muted">KDS error: ${esc(out.msg)}</p>`; return; }
-  const tables = out.data;
-  $app.querySelector('.wrap').innerHTML = `
-    <div class="card"><b>Select an available table</b>
-      <p class="muted mt8">Live table status from the kitchen display system</p></div>
-    <div class="tgrid" id="tgrid">
-      ${tables.map(t => {
-        const busy = t.status !== 'IDLE';
-        return `<button class="tcell ${busy ? 'busy' : ''}" data-id="${t.id}" data-name="${esc(t.name)}" ${busy ? 'disabled' : ''}>
-          <b>${esc(t.name)}</b>
-          <div class="st ${busy ? 'busy' : ''}">${busy ? esc(t.status) : t.seats + ' seats'}</div>
-        </button>`;
-      }).join('')}
+    <div class="stage">
+      <aside class="still">${photoStack(['street', 'sign', 'tea', 'noodle'])}${hoursBar()}</aside>
+      <section class="sheet">
+        ${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/menu?mode=walkin">Takeout</a>`)}
+        <h1 class="head" data-rise style="--i:0">Pick a free table</h1>
+        <p class="muted" data-rise style="--i:1">Live from the kitchen display. Taken tables are greyed out.</p>
+        <div id="tgrid" class="wait">Asking the kitchen display…</div>
+      </section>
     </div>`;
-  document.getElementById('tgrid').onclick = e => {
-    const cell = e.target.closest('.tcell'); if (!cell || cell.disabled) return;
-    S.session.table = { id: Number(cell.dataset.id), name: cell.dataset.name };
-    save();
+  startCrossfade(document.querySelector('.still .photos'));
+  const out = await api('kds/tables/search', {});
+  const box = document.getElementById('tgrid');
+  if (!box) return;
+  if (!out.status) { box.textContent = `The kitchen display did not answer (${out.msg}).`; return; }
+  box.className = 'tables';
+  box.innerHTML = out.data.map((t, i) => {
+    const busy = t.status !== 'IDLE';
+    return `<button class="tile ${busy ? 'busy' : ''}" data-id="${t.id}" data-name="${esc(t.name)}" ${busy ? 'disabled' : ''} data-reveal style="--i:${i}">
+      <b>${esc(t.name)}</b><span>${busy ? 'taken' : t.seats + ' seats'}</span></button>`;
+  }).join('');
+  box.onclick = e => {
+    const c = e.target.closest('.tile'); if (!c || c.disabled) return;
+    S.session.mode = 'dinein'; S.session.table = { id: Number(c.dataset.id), name: c.dataset.name }; save();
     paxSheet();
   };
+  reveal(box);
 }
 
 function paxSheet() {
-  const opts = ['2 Orang', '3-5 Orang', '6-8 Orang', '10 - 15 Orang', '>15 Orang'];
+  const opts = ['2 orang', '3–5 orang', '6–8 orang', '10–15 orang', '15 or more'];
   $sheet.innerHTML = `
-    <div class="sheet-mask"><div class="sheet"><div class="sheet-pad">
-      <h2>Total Anda makan bersama berapa orang?</h2>
-      ${opts.map(o => `<button class="choice" data-pax="${esc(o)}">${esc(o)}</button>`).join('')}
-    </div></div></div>`;
-  $sheet.querySelector('.sheet-mask').onclick = e => {
+    <div class="mask"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pax-h">
+      <h2 id="pax-h">Makan bersama berapa orang?</h2>
+      <p class="muted">How many are eating at table ${esc(S.session.table.name)}?</p>
+      <div class="choices">${opts.map(o => `<button class="choice" data-pax="${esc(o)}">${esc(o)}</button>`).join('')}</div>
+    </div></div>`;
+  $sheet.querySelector('.mask').onclick = e => {
     const b = e.target.closest('.choice');
     if (b) { S.session.pax = b.dataset.pax; save(); $sheet.innerHTML = ''; go('menu'); }
-    else if (e.target.classList.contains('sheet-mask')) $sheet.innerHTML = '';
+    else if (e.target.classList.contains('mask')) $sheet.innerHTML = '';
   };
 }
 
-/* -------------------------------------------------------------------- menu */
+/* -------------------------------------------------------- menu: the sheet */
+function photoFor(cat) {
+  const n = String(cat.name).toLowerCase();
+  if (/drink|飲|minum/.test(n)) return 'tea';
+  if (/main|主食|special|特餐|noodle|麵/.test(n)) return 'noodle';
+  if (/side|小菜/.test(n)) return 'street';
+  return 'sign';
+}
+function rowHTML(m, i) {
+  const zh = cjk(m.meal_name);
+  const n = cartQty(m.meal_id);
+  return `<li class="row" data-meal="${m.meal_id}" data-reveal style="--i:${i}">
+    <button class="row-name" data-open="${m.meal_id}"><span class="nm">${esc(m.short_name)}</span>${zh ? `<span class="zh">${esc(zh)}</span>` : ''}${m.desc ? `<span class="ds">${esc(m.desc)}</span>` : ''}</button>
+    <span class="price nums">${fmt(m.price)}</span>
+    ${qtyHTML(m, n)}
+  </li>`;
+}
+function qtyHTML(m, n) {
+  return `<span class="qty ${n ? 'on' : ''}">${n ? `<button data-dec="${m.meal_id}" aria-label="One less ${esc(m.short_name)}">−</button><b>${n}</b>` : ''}<button data-inc="${m.meal_id}" aria-label="Add ${esc(m.short_name)}">+</button></span>`;
+}
+function refreshRow(mealId) {
+  const li = document.querySelector(`.row[data-meal="${mealId}"]`);
+  if (!li) return;
+  const m = mealById(mealId);
+  li.querySelector('.qty').outerHTML = qtyHTML(m, cartQty(mealId));
+}
+
 function renderMenu() {
   if (!S.session.mode) { go('home'); return; }
-  const cats = S.menu.categories.filter(c => S.menu.meals.some(m => m.category_id === c.id));
   const dinein = S.session.mode === 'dinein';
+  const cats = S.menu.categories.filter(c => S.menu.meals.some(m => m.category_id === c.id));
+  const keys = [...new Set(cats.map(photoFor))];
+  if (dinein && S.session.table && !S.session.table.id) {
+    api('kds/tables/search', {}).then(out => {
+      if (!out.status) return;
+      const t = out.data.find(x => norm(x.name) === norm(S.session.table.name));
+      if (t) { S.session.table.id = t.id; save(); }
+    });
+  }
   $app.innerHTML = `
-    ${dinein && S.session.table ? `<div class="table-chip">Table ${esc(S.session.table.name)}</div>` : `<div class="table-chip">Takeout 外帶</div>`}
-    <div class="topbar">
-      <button class="back" id="mback">←</button>
-      <h1>${esc(S.menu.store.name)}</h1>
-      <button class="icon-btn">🔍</button>
+    <div class="stage">
+      <aside class="still still-menu">
+        ${photoStack(keys)}
+        <p class="cap" id="photo-cap">${esc(PHOTOS[keys[0]].cap)}</p>
+        <div class="slip" id="slip"></div>
+      </aside>
+      <section class="sheet">
+        ${topnav(`<a class="back" href="${dinein ? '#/tables' : '#/'}">${dinein ? 'Tables' : 'Home'}</a>`, `<a href="#/cart">Slip</a>`)}
+        <h1 class="head head-xl">The sheet</h1>
+        <p class="lead">${dinein && S.session.table ? `Table ${esc(S.session.table.name)}${S.session.pax ? ', ' + esc(S.session.pax) : ''}` : 'Takeout, collected at the counter'}</p>
+        <nav class="cats" id="cats" aria-label="Categories">${cats.map((c, i) => `<a href="#/menu" data-cat="${c.id}" class="${i === 0 ? 'is-on' : ''}">${esc(c.name)}</a>`).join('')}</nav>
+        ${cats.map(c => `
+          <section class="cat" id="cat-${c.id}" data-photo="${photoFor(c)}">
+            <h2>${esc(c.name)}</h2>
+            <ul class="rows">${S.menu.meals.filter(m => m.category_id === c.id).map((m, i) => rowHTML(m, i)).join('')}</ul>
+          </section>`).join('')}
+      </section>
     </div>
-    <div class="hero">
-      <div class="zh">新菜上市 · 歡迎光臨</div>
-      <div class="sub">${esc(S.menu.store.banner)}</div>
-      <div class="bowls">🍜🍛🍲</div>
-      <div class="ribbon">Yuk Cobain Sekarang!</div>
-    </div>
-    <div class="wrap">
-      <div class="card store-card">
-        <span><b>${esc(S.menu.store.name)}</b><div class="hours">${esc(S.menu.store.hours)}</div></span>
-        <span class="chev">›</span>
-      </div>
-      <div class="banner-card">
-        <div class="tno">${dinein && S.session.table ? `Table Number: <b>${esc(S.session.table.name)}</b>${S.session.pax ? ` · ${esc(S.session.pax)}` : ''}` : 'Takeout — pick up at counter'}</div>
-        <div class="points"><span class="coin">🪙</span><span>Spend, get points &amp; redeem voucher<a href="javascript:void 0">Click here!</a></span></div>
-      </div>
-    </div>
-    <div class="tabs" id="tabs">
-      ${cats.map((c, i) => `<button class="tab ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${esc(c.name)}</button>`).join('')}
-    </div>
-    <div id="sections">
-      ${cats.map(c => `
-        <div class="msection" id="cat-${c.id}">
-          <div class="section-title">${esc(c.name)}</div>
-          <div class="grid2">
-            ${S.menu.meals.filter(m => m.category_id === c.id).map(m => `
-              <div class="meal-card" data-meal="${m.meal_id}">
-                ${tile(m, 'meal-tile', true)}
-                <div class="meal-body">
-                  <div class="name">${esc(m.short_name)}</div>
-                  <div class="price">${fmt(m.price)}</div>
-                  <button class="btn-add" data-add="${m.meal_id}">Add</button>
-                </div>
-              </div>`).join('')}
-          </div>
-        </div>`).join('')}
-    </div>
-    <div id="cartbar-slot"></div>`;
+    <a class="slipbar" id="slipbar" href="#/cart" hidden></a>`;
 
-  document.getElementById('mback').onclick = () => go('home');
-  document.getElementById('tabs').onclick = e => {
-    const t = e.target.closest('.tab'); if (!t) return;
-    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-    const sec = document.getElementById('cat-' + t.dataset.cat);
-    if (sec) window.scrollTo({ top: sec.offsetTop - 110, behavior: 'smooth' });
+  document.getElementById('cats').onclick = e => {
+    const a = e.target.closest('a[data-cat]'); if (!a) return;
+    e.preventDefault();
+    const sec = document.getElementById('cat-' + a.dataset.cat);
+    if (sec) sec.scrollIntoView({ behavior: CALM.matches ? 'auto' : 'smooth', block: 'start' });
   };
-  document.getElementById('sections').onclick = e => {
-    const b = e.target.closest('[data-add]'); if (!b) return;
-    const meal = mealById(b.dataset.add);
-    if (meal.option_groups && meal.option_groups.length) mealSheet(meal);
-    else { addToCart(meal, 1, {}, 0, ''); toast(meal.short_name + ' added'); }
+  $app.querySelector('.sheet').onclick = e => {
+    const open = e.target.closest('[data-open]'), inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]');
+    if (open) { mealSheet(mealById(open.dataset.open)); return; }
+    if (inc) {
+      const meal = mealById(inc.dataset.inc);
+      if (meal.option_groups && meal.option_groups.length) mealSheet(meal);
+      else { addToCart(meal, 1, {}, 0, ''); toast(meal.short_name + ' on the slip'); }
+      return;
+    }
+    if (dec) {
+      const id = Number(dec.dataset.dec);
+      const line = [...S.cart].reverse().find(i => i.meal_id === id);
+      if (!line) return;
+      line.qty--; if (line.qty <= 0) S.cart = S.cart.filter(x => x !== line);
+      save(); refreshRow(id); renderSlip();
+    }
   };
-  renderCartBar();
-}
 
-function renderCartBar() {
-  const slot = document.getElementById('cartbar-slot');
-  if (!slot) return;
-  const n = cartCount();
-  slot.innerHTML = n === 0 ? '' : `
-    <button class="cartbar" onclick="location.hash='#/cart'">
-      <span class="basket">🧺<span class="bubble">${n}</span></span>
-      <span class="mid"><span class="l1">Total</span><br><span class="l2">${fmt(cartSubtotal())}</span></span>
-      <span class="go">CHECK OUT (${n}) ›</span>
-    </button>`;
+  const fig = document.querySelector('.still-menu .photos');
+  const cap = document.getElementById('photo-cap');
+  const catIO = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      const key = e.target.dataset.photo;
+      showPhoto(fig, key); cap.textContent = PHOTOS[key].cap;
+      const id = e.target.id.replace('cat-', '');
+      document.querySelectorAll('#cats a').forEach(a => a.classList.toggle('is-on', a.dataset.cat === id));
+    });
+  }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+  document.querySelectorAll('.cat').forEach(s => catIO.observe(s));
+  S.observers.push(catIO);
+
+  renderSlip();
+  reveal();
 }
 
 function addToCart(meal, qty, options, optionsPrice, remarks) {
@@ -237,100 +428,115 @@ function addToCart(meal, qty, options, optionsPrice, remarks) {
     uid: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     meal_id: meal.meal_id, qty, options, options_price: optionsPrice, remarks: remarks || '',
   });
-  save(); renderCartBar();
+  save(); refreshRow(meal.meal_id); renderSlip();
 }
 
-/* --------------------------------------------------- package option sheet */
-function mealSheet(meal, existing) {
-  const sel = {};   // groupName -> Set of option names
-  (meal.option_groups || []).forEach(g => {
-    sel[g.name] = new Set(existing ? (existing.options[g.name] || []) : []);
-  });
-  let qty = existing ? existing.qty : 1;
-
-  function optPrice() {
-    let p = 0;
-    (meal.option_groups || []).forEach(g => g.options.forEach(o => { if (sel[g.name].has(o.name)) p += o.price; }));
-    return p;
+/* the slip: sticky beside the menu, a full page on #/cart, a bar on a phone */
+function slipHTML({ full } = {}) {
+  const dinein = S.session.mode === 'dinein';
+  const head = dinein && S.session.table
+    ? `<div class="slip-table"><span class="t-num nums">${esc(S.session.table.name)}</span><span class="t-meta">Table 桌號${S.session.pax ? '<br>' + esc(S.session.pax) : ''}</span></div>`
+    : `<div class="slip-table"><span class="t-meta">Takeout 外帶<br>collected at the counter</span></div>`;
+  const lines = S.cart.length ? `<ul class="slip-lines">${S.cart.map(i => {
+    const m = mealById(i.meal_id);
+    const ops = Object.values(i.options || {}).flat();
+    return `<li data-uid="${i.uid}">
+      <span class="ln">${i.qty} × ${esc(m.short_name)}${ops.length ? `<span class="op">${ops.map(esc).join(', ')}</span>` : ''}</span>
+      <span class="pr nums">${fmt(itemPrice(i))}</span>
+      ${full ? `<span class="ctl"><span class="stepper"><button data-dec-uid="${i.uid}" aria-label="One less">−</button><b>${i.qty}</b><button data-inc-uid="${i.uid}" aria-label="One more">+</button></span>${m.option_groups && m.option_groups.length ? `<button class="ghost" data-edit="${i.uid}">Change options</button>` : ''}</span>` : ''}
+    </li>`;
+  }).join('')}</ul>` : `<p class="slip-empty">Nothing ticked yet.</p>`;
+  const sums = S.cart.length ? `<dl class="sum nums">
+      <div><dt>Subtotal</dt><dd>${fmt(cartSubtotal())}</dd></div>
+      <div><dt>Service 10%</dt><dd>${fmt(serviceFee())}</dd></div>
+      <div class="tot"><dt>Total</dt><dd>${fmt(cartTotal())}</dd></div></dl>` : '';
+  const note = S.cart.length ? `<p class="note"><label class="sr-only" for="order-note">A note for the kitchen</label><input class="field" id="order-note" placeholder="A note for the kitchen" value="${esc(S.session.note || '')}"></p>` : '';
+  const action = S.cart.length ? `<button class="button button-wide" id="save-order">Save order</button>` : '';
+  const title = full ? `<h1 class="head">Your slip</h1>` : `<h2 class="lead-h">Your slip</h2>`;
+  return `${title}${head}${lines}${sums}${note}${action}${!full && S.cart.length ? `<a class="ghost" href="#/cart">Change lines</a>` : ''}`;
+}
+function bindSlip(slip, repaint) {
+  const btn = slip.querySelector('#save-order'); if (btn) btn.onclick = saveOrder;
+  const note = slip.querySelector('#order-note'); if (note) note.onchange = e => { S.session.note = e.target.value; save(); };
+  slip.onclick = e => {
+    const inc = e.target.closest('[data-inc-uid]'), dec = e.target.closest('[data-dec-uid]'), ed = e.target.closest('[data-edit]');
+    if (inc) { S.cart.find(i => i.uid === inc.dataset.incUid).qty++; save(); repaint(); }
+    if (dec) { const i = S.cart.find(x => x.uid === dec.dataset.decUid); i.qty--; if (i.qty <= 0) S.cart = S.cart.filter(x => x !== i); save(); repaint(); }
+    if (ed) { const i = S.cart.find(x => x.uid === ed.dataset.edit); mealSheet(mealById(i.meal_id), i, repaint); }
+  };
+}
+function renderSlip() {
+  const slip = document.getElementById('slip');
+  if (slip && !slip.classList.contains('slip-full')) { slip.innerHTML = slipHTML(); bindSlip(slip, renderSlip); }
+  const bar = document.getElementById('slipbar');
+  if (bar) {
+    const n = cartCount();
+    bar.hidden = n === 0;
+    bar.innerHTML = `<span>${n} ${n === 1 ? 'dish' : 'dishes'} on your slip</span><b class="nums">${fmt(cartTotal())}</b>`;
   }
-  function valid() { return (meal.option_groups || []).every(g => !g.required || sel[g.name].size >= 1); }
+}
 
-  let animated = false;
+/* ---------------------------------------------------- options (a dialog) */
+function mealSheet(meal, existing, after) {
+  const groups = meal.option_groups || [];
+  const sel = {};
+  groups.forEach(g => { sel[g.name] = new Set(existing ? (existing.options[g.name] || []) : []); });
+  let qty = existing ? existing.qty : 1;
+  const zh = cjk(meal.meal_name);
+
+  function optPrice() { let p = 0; groups.forEach(g => g.options.forEach(o => { if (sel[g.name].has(o.name)) p += o.price; })); return p; }
+  function valid() { return groups.every(g => !g.required || sel[g.name].size >= 1); }
+
+  let painted = false;
   function paint() {
     $sheet.innerHTML = `
-      <div class="sheet-mask"><div class="sheet"${animated ? ' style="animation:none"' : ''}>
-        <div class="pkg-hero" style="background:linear-gradient(145deg,${meal.color1},${meal.color2})">
-          ${meal.emoji}
-          <button class="x" id="pkg-x">✕</button>
-        </div>
-        <div class="pkg-head">
-          <div class="nm">${esc(meal.short_name)}</div>
-          <div class="pr">${fmt(meal.price)}</div>
-          <div class="ds">${esc(meal.desc || '')}</div>
-        </div>
-        ${(meal.option_groups || []).map((g, gi) => `
+      <div class="mask"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="opt-h"${painted ? ' style="animation:none"' : ''}>
+        <button class="x" id="opt-x" aria-label="Close">×</button>
+        <h2 id="opt-h">${esc(meal.short_name)}</h2>
+        ${zh ? `<p class="zh">${esc(zh)}</p>` : ''}
+        <p class="dp nums">${fmt(meal.price)}</p>
+        ${meal.desc ? `<p class="ds">${esc(meal.desc)}</p>` : ''}
+        ${groups.map((g, gi) => `
           <div class="og" data-g="${gi}">
-            <div class="og-head">
-              <div>
-                <div class="og-name">${esc(g.name)}</div>
-                <div class="og-req ${g.required && sel[g.name].size === 0 ? 'must' : 'done'}">
-                  ${g.required ? 'Must be selected' : 'Optional'} max. ${g.max}
-                </div>
-              </div>
-              ${(!g.required || sel[g.name].size > 0) ? '<span class="ok">✔</span>' : ''}
-            </div>
+            <h3>${esc(g.name)}</h3>
+            <p class="req ${g.required && sel[g.name].size === 0 ? 'must' : ''}">${g.required ? 'Choose one' : 'Optional'}${g.max > 1 ? `, up to ${g.max}` : ''}</p>
             ${g.options.map((o, oi) => `
-              <div class="opt" data-g="${gi}" data-o="${oi}">
-                <span>${esc(o.name)}</span>
-                <span style="display:flex;align-items:center">
-                  ${o.price ? `<span class="op-price">+${fmt(o.price)}</span>` : ''}
-                  <span class="cbox ${sel[g.name].has(o.name) ? 'on' : ''}">${sel[g.name].has(o.name) ? '✔' : ''}</span>
-                </span>
-              </div>`).join('')}
+              <button class="opt ${sel[g.name].has(o.name) ? 'on' : ''}" data-g="${gi}" data-o="${oi}" aria-pressed="${sel[g.name].has(o.name)}">
+                <span class="box"></span><span>${esc(o.name)}</span>${o.price ? `<span class="op nums">+${fmt(o.price)}</span>` : '<span class="op"></span>'}
+              </button>`).join('')}
           </div>`).join('')}
-        <div class="sheet-foot">
-          <div class="tot-row">
-            <span>Total Order</span>
-            <span class="stepper">
-              <button id="q-minus">−</button><b>${qty}</b><button id="q-plus">+</button>
-            </span>
-          </div>
-          <button class="btn-primary" id="pkg-add" ${valid() ? '' : 'disabled'}>
-            ${existing ? 'Update Order' : 'Add Orders'}  -  ${fmt((meal.price + optPrice()) * qty)}
-          </button>
+        <div class="dialog-foot">
+          <div class="tot-row"><span>How many</span><span class="stepper"><button id="q-minus" aria-label="One less">−</button><b>${qty}</b><button id="q-plus" aria-label="One more">+</button></span></div>
+          <button class="button button-wide" id="pkg-add" ${valid() ? '' : 'disabled'}>${existing ? 'Update the line' : 'Put on the slip'}, ${fmt((meal.price + optPrice()) * qty)}</button>
         </div>
       </div></div>`;
-    animated = true;
-
-    const mask = $sheet.querySelector('.sheet-mask');
+    painted = true;
+    const mask = $sheet.querySelector('.mask');
     mask.onclick = e => {
-      if (e.target === mask || e.target.id === 'pkg-x') { $sheet.innerHTML = ''; return; }
+      if (e.target === mask || e.target.closest('#opt-x')) { $sheet.innerHTML = ''; return; }
       const opt = e.target.closest('.opt');
       if (opt) {
-        const g = meal.option_groups[Number(opt.dataset.g)];
-        const o = g.options[Number(opt.dataset.o)];
-        const set = sel[g.name];
+        const g = groups[Number(opt.dataset.g)], o = g.options[Number(opt.dataset.o)], set = sel[g.name];
         if (set.has(o.name)) set.delete(o.name);
         else {
           if (g.max === 1) set.clear();
-          if (set.size < g.max) set.add(o.name); else { toast('Max ' + g.max + ' for ' + g.name); return; }
+          if (set.size < g.max) set.add(o.name); else { toast('Up to ' + g.max + ' for ' + g.name); return; }
         }
         paint(); return;
       }
-      if (e.target.id === 'q-plus') { qty++; paint(); }
-      if (e.target.id === 'q-minus') { if (qty > 1) qty--; paint(); }
-      if (e.target.id === 'pkg-add' && valid()) {
+      if (e.target.closest('#q-plus')) { qty++; paint(); }
+      if (e.target.closest('#q-minus')) { if (qty > 1) qty--; paint(); }
+      if (e.target.closest('#pkg-add') && valid()) {
         const options = {};
         for (const [k, v] of Object.entries(sel)) if (v.size) options[k] = [...v];
         if (existing) {
           existing.qty = qty; existing.options = options; existing.options_price = optPrice();
-          save();
-          $sheet.innerHTML = '';
-          if (location.hash.includes('cart')) renderCart(); else renderCartBar();
+          save(); $sheet.innerHTML = '';
+          if (after) after(); else renderSlip();
         } else {
           addToCart(meal, qty, options, optPrice(), '');
           $sheet.innerHTML = '';
-          toast(meal.short_name + ' added');
+          toast(meal.short_name + ' on the slip');
         }
       }
     };
@@ -338,79 +544,24 @@ function mealSheet(meal, existing) {
   paint();
 }
 
-/* -------------------------------------------------------------------- cart */
+/* -------------------------------------------------------------------- slip */
 function renderCart() {
-  if (S.cart.length === 0) {
-    $app.innerHTML = `
-      <div class="topbar"><button class="back" onclick="location.hash='#/menu'">←</button><h1>Order</h1></div>
-      <div class="wrap center mt16"><div style="font-size:50px">🧺</div>
-        <p class="muted mt8">Your cart is empty</p>
-        <button class="btn-ghost mt16" onclick="location.hash='#/menu'">Back to Menu</button></div>`;
-    return;
-  }
-  const dinein = S.session.mode === 'dinein';
   $app.innerHTML = `
-    <div class="topbar"><button class="back" id="cback">←</button><h1 class="center" style="text-align:center">Order</h1><span style="width:36px"></span></div>
-    <div class="wrap">
-      <div class="ordertype"><span>Order Type</span><b>${dinein ? 'Dine In' : 'Takeout'} ✓</b></div>
-      <div class="card">
-        <div class="sec-head"><h3>Ordered Items (${cartCount()})</h3>
-          <button class="add-item" onclick="location.hash='#/menu'">+ Add Item</button></div>
-        <div id="citems">
-          ${S.cart.map(i => {
-            const m = mealById(i.meal_id);
-            const subs = Object.entries(i.options || {}).flatMap(([g, arr]) => arr.map(o => `1x ${esc(o)}`));
-            return `
-            <div class="citem" data-uid="${i.uid}">
-              <div class="n"><span>${esc(m.short_name)}</span>
-                ${m.option_groups ? `<button class="edit" data-edit="${i.uid}">✏️ Edit</button>` : ''}</div>
-              ${subs.length ? `<div class="sub">${subs.join('<br>')}</div>` : ''}
-              <div class="note">${i.remarks ? '📝 ' + esc(i.remarks) : '📝 No notes yet'}</div>
-              <div class="row">
-                <span class="pr">${fmt((m.price + i.options_price) * i.qty)}</span>
-                <span class="stepper">
-                  <button data-dec="${i.uid}">−</button><b>${i.qty}</b><button data-inc="${i.uid}">+</button>
-                </span>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="notes-row">✍️ <input id="order-note" placeholder="Add another notes" value="${esc(S.session.note || '')}"></div>
-      <div class="card pay-detail">
-        <h3>Payment Details</h3>
-        <div class="pd-row"><span class="lbl">Subtotal <span class="muted">(${cartCount()} menu)</span></span><span>${fmt(cartSubtotal())}</span></div>
-        <div class="pd-row"><span class="lbl">Rounding</span><span>${fmt(0)}</span></div>
-        <div class="pd-row"><span class="lbl">Other fees (10%)</span><span>${fmt(serviceFee())}</span></div>
-        <div class="pd-row total"><span>Total</span><span class="val">${fmt(cartTotal())}</span></div>
-      </div>
-      <p class="muted center" style="font-size:12.5px">Payment is at the cashier after you save the order.</p>
-    </div>
-    <div class="footbar">
-      <span class="tp"><span class="l1">Total Payment</span><br><span class="l2">${fmt(cartTotal())}</span></span>
-      <button class="btn-primary" id="save-order">Save Order</button>
-    </div>`;
-
-  document.getElementById('cback').onclick = () => go('menu');
-  document.getElementById('save-order').onclick = saveOrder;
-  document.getElementById('order-note').onchange = e => { S.session.note = e.target.value; save(); };
-  document.getElementById('citems').onclick = e => {
-    const inc = e.target.closest('[data-inc]'), dec = e.target.closest('[data-dec]'), ed = e.target.closest('[data-edit]');
-    if (inc) { S.cart.find(i => i.uid === inc.dataset.inc).qty++; save(); renderCart(); }
-    if (dec) {
-      const i = S.cart.find(x => x.uid === dec.dataset.dec);
-      i.qty--; if (i.qty <= 0) S.cart = S.cart.filter(x => x !== i);
-      save(); renderCart();
-    }
-    if (ed) {
-      const i = S.cart.find(x => x.uid === ed.dataset.edit);
-      mealSheet(mealById(i.meal_id), i);
-    }
-  };
+    <div class="paper"><div class="inner">
+      ${topnav(`<a class="back" href="${S.session.mode ? '#/menu' : '#/'}">${S.session.mode ? 'The sheet' : 'Home'}</a>`, `<span></span>`)}
+      <div class="slip slip-full" id="slip"></div>
+    </div></div>`;
+  paintCart();
+}
+function paintCart() {
+  const slip = document.getElementById('slip');
+  if (!slip) return;
+  slip.innerHTML = slipHTML({ full: true }) + (S.cart.length ? '' : `<p><a class="button" href="${S.session.mode ? '#/menu' : '#/'}">Back to the sheet</a></p>`);
+  bindSlip(slip, paintCart);
 }
 
 /* Save Order — the only customer action: the order goes to the kitchen (KDS)
- * AND is pushed to midhong -> local agent -> ESB POS (table turns red).
+ * AND is pushed to midhong → local agent → ESB POS (table turns red).
  * Only the ESB cashier can finish it; the status page waits for that. */
 async function saveOrder() {
   const btn = document.getElementById('save-order');
@@ -424,176 +575,173 @@ async function saveOrder() {
     note: S.session.note || '',
     meals: S.cart.map(i => ({
       meal_id: i.meal_id, quantity: i.qty, options_price: i.options_price,
-      remarks: [Object.entries(i.options || {}).map(([g, a]) => a.join(', ')).filter(Boolean).join(' / '), i.remarks].filter(Boolean).join(' · '),
+      remarks: [Object.entries(i.options || {}).map(([, a]) => a.join(', ')).filter(Boolean).join(' / '), i.remarks].filter(Boolean).join(', '),
     })),
   });
-  if (!out.status) { toast('Save failed: ' + out.msg); btn.disabled = false; btn.textContent = 'Save Order'; return; }
+  if (!out.status) { toast('Could not save: ' + out.msg); btn.disabled = false; btn.textContent = 'Save order'; return; }
   S.lastOrder = {
     order_no: out.data.order_no, reservation_id: out.data.reservation_id,
     mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(),
   };
-  S.cart = []; save();
+  S.cart = []; S.session.note = ''; save();
   go('status');
 }
 
 /* ------------------------------------------------------------------ status */
-/* The "show the cashier" screen: table number (or takeout order no) rendered
- * huge, the bridge timeline underneath, kitchen status from the KDS. Flips to
- * FINISHED / PAID when midhong reports that the ESB cashier settled the bill. */
-async function renderStatus() {
+/* The "show the cashier" screen: the table number (or the takeout call number) at display size,
+ * then what the till bridge and the kitchen display report. The slip is stamped paid when
+ * midhong reports that the ESB cashier settled the bill. #/status?order_no=… reopens an order
+ * from the bridge record (after a refresh, or from another device). */
+async function renderStatus(q) {
+  const want = q && q.get('order_no');
+  if (want && (!S.lastOrder || S.lastOrder.order_no !== want)) {
+    const st = await api('bridge/status?order_no=' + encodeURIComponent(want));
+    if (st && st.stage) {
+      S.lastOrder = { order_no: want, mode: st.mode, table: st.table_name ? { name: st.table_name } : null, paid: st.stage === 'settled', total: Number(st.total) || 0 };
+      save();
+    }
+  }
   const o = S.lastOrder;
   if (!o) { go('home'); return; }
   const dinein = o.mode === 'dinein' && o.table;
+  const call = String(o.order_no).slice(-4);
   $app.innerHTML = `
-    <div class="topbar"><button class="back" onclick="location.hash='#/home'">←</button><h1 style="text-align:center">Order Status</h1><span style="width:36px"></span></div>
-    <div class="wrap">
-      <div class="cashier-card" id="cashier-card">
-        <div class="cc-label">${dinein ? 'Table 桌號' : 'Takeout 外帶'}</div>
-        <div class="cc-big">${esc(dinein ? o.table.name : o.order_no)}</div>
-        ${dinein ? `<div class="cc-sub">Order ${esc(o.order_no)}</div>` : ''}
-        <div class="cc-total">${fmt(o.total)}</div>
-        <div class="cc-msg" id="cc-msg">Please pay at the cashier — show this screen 🙏</div>
-      </div>
-      <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">ESB POS Bridge <span class="muted">(midhong → SQL agent)</span></h3>
-        <div id="bridge-live"><div class="center mt8"><span class="spin"></span></div></div>
-      </div>
-      <div class="card"><h3 style="font-size:15.5px;font-weight:800;margin-bottom:6px">Kitchen Status <span class="muted">(live from KDS)</span></h3>
-        <div id="meals-live"><div class="center mt8"><span class="spin"></span></div></div>
-      </div>
-      <button class="btn-ghost" onclick="location.hash='#/menu'">Order More</button>
-      <button class="btn-ghost" onclick="sessionStorage.clear();location.hash='#/home'">New Session</button>
+    <div class="stage">
+      <aside class="still">${photoStack(['robot', 'street', 'sign', 'tea'])}${hoursBar('Show this screen to the cashier')}</aside>
+      <section class="sheet cashier">
+        <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<span></span>`)}</div>
+        <h1 class="display nums" data-rise style="--i:1">${esc(dinein ? o.table.name : call)}</h1>
+        <p class="lead" data-rise style="--i:2">${dinein ? `Table 桌號 ${esc(o.table.name)}<br><span class="muted">Order ${esc(o.order_no)}</span>` : `Takeout 外帶, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
+        <p class="total head nums" data-rise style="--i:3">${fmt(o.total)}</p>
+        <p class="msg" id="cc-msg" data-rise style="--i:4">${o.paid ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier.'}</p>
+        <div class="stamp" id="stamp" ${o.paid ? '' : 'hidden'}>Paid 已付<small id="stamp-sub"></small></div>
+        <section class="status-sec" data-reveal><h2 class="lead-h">At the counter</h2><ol class="steps" id="bridge-live"><li class="wait">Asking the till bridge…</li></ol></section>
+        <section class="status-sec" data-reveal style="--i:1"><h2 class="lead-h">In the kitchen</h2><ul class="kitchen" id="meals-live"><li class="wait">Asking the kitchen display…</li></ul></section>
+        <p class="after-links" data-reveal style="--i:2"><a class="link-plain" href="#/menu">Order more</a><a class="link-plain" href="#/" id="new-session">New session</a></p>
+      </section>
     </div>`;
+  document.getElementById('new-session').onclick = () => { sessionStorage.clear(); };
+  startCrossfade(document.querySelector('.still .photos'));
+  reveal();
 
-  const BRIDGE_STAGES = [
-    ['queued', '📨', 'Pushed to middleware'],
-    ['picked_up', '🤖', 'Local agent picked up'],
-    ['table_opened', '🟡', 'SQL: table opened on ESB POS'],
-    ['order_saved', '🔴', 'SQL: order saved — table occupied'],
-    ['waiting_cashier', '🧑‍💼', 'Waiting for cashier on ESB POS'],
-    ['settled', '✅', 'Finished — bill settled on ESB POS'],
-  ];
   function markPaid(st) {
-    const card = document.getElementById('cashier-card'), msg = document.getElementById('cc-msg');
-    if (!card || card.classList.contains('done')) return;
-    card.classList.add('done');
-    msg.textContent = `FINISHED · PAID ✅  payment ${st.payment_method || ''}${st.billNum ? ' · bill ' + st.billNum : ''}`;
+    const stamp = document.getElementById('stamp'), msg = document.getElementById('cc-msg');
+    if (!stamp) return;
+    stamp.hidden = false;
+    document.getElementById('stamp-sub').textContent = `payment ${st.payment_method || ''}${st.billNum ? ', bill ' + st.billNum : ''}`;
+    msg.textContent = 'Finished, paid.';
     o.paid = true; save();
   }
   async function pollBridge() {
     const box = document.getElementById('bridge-live');
     if (!box) return;
     let st = null;
-    try { st = await api('bridge/status?order_no=' + encodeURIComponent(o.order_no)); } catch (e) { /* keep spinner */ }
-    if (!st || !st.stage) { box.innerHTML = `<p class="muted">${st && st.msg ? esc(st.msg) : 'No bridge record for this order.'}</p>`; return; }
+    try { st = await api('bridge/status?order_no=' + encodeURIComponent(o.order_no)); } catch (e) { /* keep the last state */ }
+    if (!st || !st.stage) { box.innerHTML = `<li class="wait">${st && st.msg ? esc(st.msg) : 'No bridge record for this order yet.'}</li>`; return; }
     if (st.stage === 'settled') markPaid(st);
-    const reached = i => BRIDGE_STAGES.findIndex(s => s[0] === st.stage) >= i || ['voided', 'error'].includes(st.stage);
-    box.innerHTML = `
-      ${BRIDGE_STAGES.map((s, i) => `
-        <div class="bstep ${reached(i) ? 'on' : ''}">
-          <span class="bic">${s[1]}</span>
-          <span class="btxt">${s[2]}${s[0] === 'queued' && st.pending_push ? '<br><span class="muted">⏳ middleware not reachable yet — retrying</span>' : ''}${s[0] === 'table_opened' && st.salesNum && reached(i) ? `<br><span class="muted">salesNum ${esc(st.salesNum)}</span>` : ''}${s[0] === 'settled' && reached(5) && st.payment_method ? `<br><span class="muted">payment ${esc(st.payment_method)}${st.billNum ? ' · bill ' + esc(st.billNum) : ''}</span>` : ''}</span>
-          <span class="bdot">${reached(i) ? '✔' : ''}</span>
-        </div>`).join('')}
-      ${st.stage === 'voided' ? '<p class="muted mt8">⚠️ Voided by the cashier on ESB POS.</p>' : ''}
-      ${st.stage === 'error' ? `<p class="muted mt8">⚠️ Bridge error: ${esc(st.error || '')}</p>` : ''}
-      <p class="muted mt8" style="font-size:11.5px">${st.agent_live ? '🟢 live agent connected' : (st.simulated ? '🟠 simulator mode (no live agent)' : '')}</p>`;
+    const at = BRIDGE_STAGES.findIndex(s => s[0] === st.stage);
+    const ended = ['voided', 'error'].includes(st.stage);
+    box.innerHTML = BRIDGE_STAGES.map((s, i) => {
+      const done = at > i || ended, now = at === i;
+      let sub = '';
+      if (s[0] === 'queued' && st.pending_push) sub = 'The bridge is not reachable yet, retrying';
+      if (s[0] === 'table_opened' && st.salesNum && (done || now)) sub = 'Sale ' + esc(st.salesNum);
+      if (s[0] === 'settled' && now && st.payment_method) sub = `Payment ${esc(st.payment_method)}${st.billNum ? ', bill ' + esc(st.billNum) : ''}`;
+      return `<li class="${done ? 'is-done' : ''}${now ? ' is-now' : ''}"><span>${s[1]}${sub ? `<span class="sub">${sub}</span>` : ''}</span></li>`;
+    }).join('')
+      + (st.stage === 'voided' ? '<li class="is-now"><span>Voided by the cashier on the ESB till</span></li>' : '')
+      + (st.stage === 'error' ? `<li class="is-now"><span>Bridge error: ${esc(st.error || '')}</span></li>` : '')
+      + `<li class="small"><span>${st.agent_live ? 'Live branch agent connected' : (st.simulated ? 'Simulator, no live agent' : 'No branch agent connected')}</span></li>`;
   }
   async function poll() {
     pollBridge();
     const out = await api('kds/orders/details', { order_id: o.order_no });
     const box = document.getElementById('meals-live');
     if (!box) return;
-    if (!out.status) { box.innerHTML = `<p class="muted">No details (${esc(out.msg)})</p>`; return; }
+    if (!out.status) { box.innerHTML = `<li class="wait">No details yet (${esc(out.msg)})</li>`; return; }
     const ord = out.data.order;
-    box.innerHTML = `
-      ${out.data.order_meals.map(m => `
-        <div class="meal-status">
-          <span>${m.quantity}× ${esc(m.meal_name)}${m.remarks ? `<br><span class="muted">${esc(m.remarks)}</span>` : ''}</span>
-          <span class="badge ${esc(m.status)}">${esc(m.status)}</span>
-        </div>`).join('')}
-      <div class="pd-row total" style="margin-top:8px"><span>Total</span><span class="val">${fmt(Number(ord.total_price))}</span></div>
-      <div class="pd-row"><span class="lbl">Order status</span><span><span class="badge ${ord.status === 'paid' ? 'PAID' : 'PREPARING'}">${esc(ord.status)}</span></span></div>`;
+    box.innerHTML = out.data.order_meals.map(m => `
+      <li><span>${m.quantity} × ${esc(m.meal_name)}${m.remarks ? `<span class="op">${esc(m.remarks)}</span>` : ''}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`).join('')
+      + `<li><span>Order</span><span class="st st-${esc(ord.status)}">${esc(word(ord.status))}, ${fmt(Number(ord.total_price))}</span></li>`;
   }
   poll();
-  S.statusTimer = setInterval(poll, 5000);
+  S.timers.push(setInterval(poll, 5000));
 }
 
 /* ---------------------------------------------------------- bridge monitor */
 async function renderBridge() {
   $app.innerHTML = `
-    <div class="topbar"><button class="back" onclick="location.hash='#/home'">←</button><h1>Bridge Monitor 🔁</h1></div>
-    <div class="wrap" id="bm-wrap"><div class="center mt16"><span class="spin"></span></div></div>`;
-  const STAGE_LABEL = {
-    queued: ['QUEUED', 'PREPARING'], picked_up: ['AGENT', 'PREPARING'],
-    table_opened: ['OPEN 🟡', 'PREPARING'], order_saved: ['OCCUPIED 🔴', 'PREPARING'],
-    waiting_cashier: ['CASHIER…', 'READY'], settled: ['FINISHED', 'PAID'],
-    voided: ['VOIDED', 'SERVED'], error: ['ERROR', 'SERVED'],
+    <div class="stage">
+      <aside class="still">${photoStack(['tea', 'noodle', 'street', 'sign'])}${hoursBar('Staff screen')}</aside>
+      <section class="sheet">
+        <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/takeout">Board</a>`)}</div>
+        <h1 class="head head-xl" data-rise style="--i:1">Bridge monitor</h1>
+        <p class="muted" id="bm-agent" data-rise style="--i:2">Hong Chiang to the middleware to the ESB till.</p>
+        <div class="blocks" id="bm-list" data-rise style="--i:3"><p class="wait">Asking the bridge…</p></div>
+      </section>
+    </div>`;
+  startCrossfade(document.querySelector('.still .photos'));
+  const LABEL = {
+    queued: 'Queued', picked_up: 'Agent', table_opened: 'Table open', order_saved: 'Occupied',
+    waiting_cashier: 'At the cashier', settled: 'Finished, paid', voided: 'Voided', error: 'Error',
   };
   async function paint() {
-    const wrap = document.getElementById('bm-wrap');
-    if (!wrap) return;
+    const list = document.getElementById('bm-list');
+    if (!list) return;
     const ov = await api('bridge/overview');
-    wrap.innerHTML = `
-      <div class="card">
-        <b>Hong Chiang → Middleware → ESB POS</b>
-        <p class="muted mt8">
-          Agent: ${ov.agent_live ? '🟢 live agent connected' : ov.simulator ? '🟠 simulator (no live agent)' : '⚪ offline'}
-          ${ov.esb_menu ? `<br>Menu synced from ESB POS: ${ov.esb_menu.meals} items (${esc(ov.esb_menu.synced_at.slice(0, 19).replace('T', ' '))})` : '<br>Menu source: local catalog'}
-        </p>
-      </div>
-      ${ov.commands.length === 0 ? '<p class="center muted mt16">No orders yet — place one from the menu 🍜</p>' : ''}
-      ${ov.commands.map(c => `
-        <div class="card" style="padding:12px 14px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <b style="font-size:13.5px">${esc(c.order_no)}</b>
-            <span class="badge ${STAGE_LABEL[c.stage] ? STAGE_LABEL[c.stage][1] : 'SERVED'}">${STAGE_LABEL[c.stage] ? STAGE_LABEL[c.stage][0] : esc(c.stage)}</span>
-          </div>
-          <div class="muted" style="font-size:12.5px;margin-top:5px">
-            ${c.mode === 'dinein' ? 'Dine In · Table ' + esc(c.table_name || '?') : 'Takeout'} · ${c.items} item(s) · ${fmt(c.total)}
-            ${c.salesNum ? `<br>ESB salesNum: <b>${esc(c.salesNum)}</b>` : ''}
-            ${c.payment_method ? ` · paid (${esc(c.payment_method)})` : ''}
-          </div>
-          <div class="muted" style="font-size:11.5px;margin-top:6px;border-top:1px dashed var(--line);padding-top:6px">
-            ${c.events.slice(-3).map(e => `${esc(e.t.slice(11))} — ${esc(e.detail || e.stage)}`).join('<br>')}
-          </div>
-        </div>`).join('')}`;
+    document.getElementById('bm-agent').textContent =
+      (ov.agent_live ? 'Live branch agent connected. ' : ov.simulator ? 'Simulator, no live agent. ' : 'Agent offline. ')
+      + (ov.esb_menu ? `Menu synced from the ESB till: ${ov.esb_menu.meals} items, ${String(ov.esb_menu.synced_at).slice(0, 16).replace('T', ' ')}.` : 'Menu from the local catalog.');
+    const first = !list.dataset.painted; list.dataset.painted = '1';
+    list.innerHTML = (ov.commands || []).length === 0 ? '<p class="wait">No orders yet. Place one from the sheet.</p>' : ov.commands.map((c, i) => `
+      <div class="block" ${first ? `data-reveal style="--i:${i}"` : ''}>
+        <div class="ln" ${first ? `data-reveal style="--i:${i + 1}"` : ''}><b>${esc(c.order_no)}</b><span>${LABEL[c.stage] || esc(c.stage)}</span></div>
+        <div class="ln muted" ${first ? `data-reveal style="--i:${i + 2}"` : ''}><span>${c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout'}</span><span>${c.items} ${c.items === 1 ? 'dish' : 'dishes'}, ${fmt(c.total)}</span></div>
+        ${c.salesNum ? `<div class="ln muted"><span>Sale ${esc(c.salesNum)}</span><span>${c.payment_method ? 'paid ' + esc(c.payment_method) : ''}</span></div>` : ''}
+        <p class="muted">${(c.events || []).slice(-3).map(e => `${esc(String(e.t).slice(11, 19))} ${esc(e.detail || e.stage)}`).join('<br>')}</p>
+      </div>`).join('');
+    if (first) reveal(list);
   }
   paint();
-  S.statusTimer = setInterval(paint, 3000);
+  S.timers.push(setInterval(paint, 3000));
 }
 
 /* ----------------------------------------------------------- takeout board */
 async function renderTakeout() {
   $app.innerHTML = `
-    <div class="topbar"><button class="back" onclick="location.hash='#/home'">←</button><h1>Takeout Board 外帶看板</h1></div>
-    <div class="wrap" id="tk-wrap"><div class="center mt16"><span class="spin"></span></div></div>`;
+    <div class="stage">
+      <aside class="still">${photoStack(['street', 'tea', 'sign', 'noodle'])}${hoursBar('Staff screen')}</aside>
+      <section class="sheet">
+        <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/bridge">Bridge</a>`)}</div>
+        <h1 class="head head-xl" data-rise style="--i:1">Takeout board</h1>
+        <p class="muted" data-rise style="--i:2">Open walk-in orders, live from the kitchen display. Tap one to see its lines.</p>
+        <div class="blocks" id="tk-list" data-rise style="--i:3"><p class="wait">Asking the kitchen display…</p></div>
+        <div id="tk-detail"></div>
+      </section>
+    </div>`;
+  startCrossfade(document.querySelector('.still .photos'));
   const out = await api('kds/walkIns/get', {});
-  const wrap = document.getElementById('tk-wrap');
-  if (!out.status) { wrap.innerHTML = `<p class="center muted">KDS error: ${esc(out.msg)}</p>`; return; }
+  const list = document.getElementById('tk-list');
+  if (!list) return;
+  if (!out.status) { list.innerHTML = `<p class="wait">The kitchen display did not answer (${esc(out.msg)}).</p>`; return; }
   const nos = out.data.order_nos || [];
-  wrap.innerHTML = `
-    <div class="card"><b>Open walk-in orders</b><p class="muted mt8">Live from <code>walkIns/get</code> — tap an order to view & settle it.</p></div>
-    ${nos.length === 0 ? '<p class="center muted mt16">No open takeout orders 🎉</p>' : ''}
-    <div id="tk-list">${nos.map(n => `
-      <button class="tk-row" data-no="${esc(n)}" style="width:100%"><b>${esc(n)}</b><span class="chev">›</span></button>`).join('')}
-    </div>
-    <div id="tk-detail"></div>`;
-  document.getElementById('tk-list').onclick = async e => {
+  list.innerHTML = nos.length === 0 ? '<p class="wait">No open takeout orders.</p>'
+    : nos.map((n, i) => `<button class="block" data-no="${esc(n)}" data-reveal style="--i:${i}"><div class="ln" data-reveal style="--i:${i + 1}"><b data-reveal style="--i:${i + 2}">${esc(String(n).slice(-4))}</b><span>${esc(n)}</span></div></button>`).join('');
+  reveal(list);
+  list.onclick = async e => {
     const b = e.target.closest('[data-no]'); if (!b) return;
     const d = await api('kds/orders/details', { order_id: b.dataset.no });
     const box = document.getElementById('tk-detail');
-    if (!d.status) { box.innerHTML = `<p class="muted center">Error: ${esc(d.msg)}</p>`; return; }
+    if (!d.status) { box.innerHTML = `<p class="wait">No details (${esc(d.msg)}).</p>`; return; }
     const ord = d.data.order;
     box.innerHTML = `
-      <div class="card mt8">
-        <div class="ordno">${esc(ord.order_no)}</div>
-        ${d.data.order_meals.map(m => `
-          <div class="meal-status"><span>${m.quantity}× ${esc(m.meal_name)}</span>
-          <span class="badge ${esc(m.status)}">${esc(m.status)}</span></div>`).join('')}
-        <div class="pd-row total"><span>Total</span><span class="val">${fmt(Number(ord.total_price))}</span></div>
-        <div class="pd-row"><span class="lbl">Status</span><span class="badge ${ord.status === 'paid' ? 'PAID' : 'PREPARING'}">${esc(ord.status)}</span></div>
-        <p class="center muted mt8">Settled by the cashier on ESB POS</p>
-      </div>`;
+      <section class="status-sec">
+        <h2 class="lead-h">${esc(ord.order_no)}</h2>
+        <ul class="kitchen">${d.data.order_meals.map(m => `<li><span>${m.quantity} × ${esc(m.meal_name)}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`).join('')}
+          <li><span>Order</span><span class="st st-${esc(ord.status)}">${esc(word(ord.status))}, ${fmt(Number(ord.total_price))}</span></li></ul>
+        <p class="small muted">Settled by the cashier on the ESB till.</p>
+      </section>`;
+    box.scrollIntoView({ behavior: CALM.matches ? 'auto' : 'smooth', block: 'start' });
   };
 }
 

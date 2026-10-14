@@ -3,15 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Hong Chiang Ordering</title>
-  <meta name="description" content="Self-ordering app for Hong-Chiang KDS — dine-in & takeout">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥡</text></svg>">
+  <title>Hong Chiang 鴻匠 — order here, pay at the counter</title>
+  <meta name="description" content="Self-ordering for Hong Chiang: tick the sheet from your table or for takeout, pay at the cashier.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23c8321e'/%3E%3Crect x='14' y='14' width='36' height='36' fill='%23ffffff'/%3E%3Crect x='24' y='24' width='16' height='16' fill='%23c8321e'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Besley:wght@800&family=Libre+Franklin:wght@400;600&family=Noto+Serif+TC:wght@900&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
+  <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
-  <div id="app" class="phone"></div>
+  <div id="app"></div>
   <div id="sheet-root"></div>
-  <div id="toast-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
   <script src="/js/app.js"></script>
 </body>
 </html>
