@@ -18,5 +18,7 @@ cashier_username = PTGNBKASIR1
 ; brand code portion of salesNum (e.g. SUSHO). Leave empty to derive from an existing sale.
 brand_code =
 poll_seconds = 5
+; push the ESB menu to the webapp at startup and every N minutes (0 = manual --sync-menu only)
+menu_sync_minutes = 10
 default_pax = 2
 state_file = agent_state.json

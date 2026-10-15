@@ -170,6 +170,8 @@ class Agent:
         self.cashier = a.get("cashier_username", "KASIR1")
         self.brand_code = a.get("brand_code", "")  # empty -> derived from an existing salesNum
         self.poll_seconds = a.getint("poll_seconds", 5)
+        # 0 disables the periodic re-sync; the first sync runs right at startup
+        self.menu_sync_minutes = a.getint("menu_sync_minutes", 10)
         self.pad_pax = a.getint("default_pax", 2)
         self.state_path = Path(a.get("state_file", "agent_state.json"))
         # Optional [tables] section: Hong Chiang table name -> ESB tableName
@@ -510,9 +512,14 @@ class Agent:
         print("hc-bridge-agent %s — polling %s every %ss, DB=%s"
               % (AGENT_VERSION, self.web.base, self.poll_seconds, self.db.conn.db.decode()
                  if isinstance(self.db.conn.db, bytes) else self.db.conn.db))
+        last_menu_sync = 0.0
         while True:
             try:
                 self.web.heartbeat()
+                if self.menu_sync_minutes and \
+                        time.time() - last_menu_sync >= self.menu_sync_minutes * 60:
+                    self.sync_menu()
+                    last_menu_sync = time.time()
                 for cmd in self.web.commands():
                     self.process(cmd)
                 self.watch()
