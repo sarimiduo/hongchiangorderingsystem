@@ -1,434 +1,52 @@
 {
   "store": {
-    "name": "HONG CHIANG DINING",
-    "tagline": "Robot Delivery · Smart Kitchen",
-    "hours": "Open today, 10:00-22:00",
-    "banner": "新菜上市 · 歡迎光臨 — Yuk Cobain Sekarang!"
+    "name": "Edo Sushi",
+    "tagline": "Kaiten sushi, pay by the plate",
+    "hours": "Open today 10:00–22:00",
+    "banner": "Take it from the belt, or tick it here",
+    "plates": { "red": 15000, "blue": 20000, "green": 25000, "black": 30000, "gold": 40000 }
   },
   "categories": [
-    {
-      "id": 1,
-      "name": "Favorit Banyak Orang"
-    },
-    {
-      "id": 2,
-      "name": "Paket Keluarga"
-    },
-    {
-      "id": 3,
-      "name": "Paket Berdua"
-    },
-    {
-      "id": 6,
-      "name": "每日特餐 Daily Special"
-    },
-    {
-      "id": 4,
-      "name": "單點主食 Mains"
-    },
-    {
-      "id": 5,
-      "name": "小菜 Sides"
-    },
-    {
-      "id": 7,
-      "name": "飲料 Drinks"
-    }
+    { "id": 1, "name": "Nigiri" },
+    { "id": 2, "name": "Gunkan" },
+    { "id": 3, "name": "Maki" },
+    { "id": 4, "name": "Hot plates" },
+    { "id": 5, "name": "Sweet plates" },
+    { "id": 6, "name": "Drinks" }
   ],
   "meals": [
-    {
-      "meal_id": 13,
-      "menu_code": "HC-013",
-      "meal_name": "雞肉菇菇咖哩飯 Chicken Mushroom Curry Rice",
-      "short_name": "Chicken Curry Rice",
-      "price": 43182,
-      "category_id": 1,
-      "emoji": "🍛",
-      "color1": "#8C2B2B",
-      "color2": "#C4541F",
-      "desc": "1 Curry Rice + 1 Crispy Chicken + 1 Iced Tea Jumbo",
-      "option_groups": [
-        {
-          "name": "Rice 米飯",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "White Rice 白飯",
-              "price": 0
-            },
-            {
-              "name": "Brown Rice 糙米飯",
-              "price": 3000
-            }
-          ]
-        },
-        {
-          "name": "Spice Level 辣度",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Not Spicy 不辣",
-              "price": 0
-            },
-            {
-              "name": "Level 1 小辣",
-              "price": 0
-            },
-            {
-              "name": "Level 2 中辣",
-              "price": 0
-            },
-            {
-              "name": "Level 3 大辣",
-              "price": 0
-            }
-          ]
-        },
-        {
-          "name": "Drink 飲料",
-          "required": false,
-          "max": 1,
-          "options": [
-            {
-              "name": "Es Teh Manis Jumbo",
-              "price": 0
-            },
-            {
-              "name": "Winter Melon Tea 冬瓜茶",
-              "price": 5000
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "meal_id": 21,
-      "menu_code": "HC-021",
-      "meal_name": "三杯雞飯 Three-Cup Chicken Rice",
-      "short_name": "Three-Cup Chicken",
-      "price": 48182,
-      "category_id": 1,
-      "emoji": "🍗",
-      "color1": "#5B3A1E",
-      "color2": "#A05C2C",
-      "desc": "Basil, sesame oil & soy glazed chicken with rice"
-    },
-    {
-      "meal_id": 22,
-      "menu_code": "HC-022",
-      "meal_name": "炒空心菜 Cah Kangkung Bakar",
-      "short_name": "Cah Kangkung",
-      "price": 18182,
-      "category_id": 1,
-      "emoji": "🥬",
-      "color1": "#1E5B2E",
-      "color2": "#4CA05C",
-      "desc": "Wok-fired water spinach, garlic & chili"
-    },
-    {
-      "meal_id": 31,
-      "menu_code": "HC-031",
-      "meal_name": "全家福大拼盤 Family Feast 1",
-      "short_name": "Family Feast 1",
-      "price": 299091,
-      "category_id": 2,
-      "emoji": "🍱",
-      "color1": "#7A1F1F",
-      "color2": "#B33A3A",
-      "desc": "4 Rice + Whole Chicken + 2 Sides + 4 Drinks (4-6 persons)",
-      "option_groups": [
-        {
-          "name": "Side Dish A 配菜一",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Cah Kangkung",
-              "price": 0
-            },
-            {
-              "name": "Golden Tofu 黃金豆腐",
-              "price": 0
-            }
-          ]
-        },
-        {
-          "name": "Side Dish B 配菜二",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Century Egg 皮蛋豆腐",
-              "price": 0
-            },
-            {
-              "name": "Pickled Cucumber 涼拌小黃瓜",
-              "price": 0
-            }
-          ]
-        },
-        {
-          "name": "Drinks 飲料 (choose up to 4)",
-          "required": true,
-          "max": 4,
-          "options": [
-            {
-              "name": "Iced Tea 冰紅茶",
-              "price": 0
-            },
-            {
-              "name": "Winter Melon Tea 冬瓜茶",
-              "price": 0
-            },
-            {
-              "name": "Lemon Tea 檸檬茶",
-              "price": 0
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "meal_id": 32,
-      "menu_code": "HC-032",
-      "meal_name": "闔家歡宴 Family Feast 2",
-      "short_name": "Family Feast 2",
-      "price": 579091,
-      "category_id": 2,
-      "emoji": "🥘",
-      "color1": "#6B1D1D",
-      "color2": "#C0392B",
-      "desc": "8 Rice + Roast Duck + Fish + 4 Sides + 8 Drinks (8-12 persons)"
-    },
-    {
-      "meal_id": 41,
-      "menu_code": "HC-041",
-      "meal_name": "雙人雞腿餐 Couple Set — Double Chicken",
-      "short_name": "Couple Set 1",
-      "price": 107727,
-      "category_id": 3,
-      "emoji": "🍜",
-      "color1": "#3E5B1E",
-      "color2": "#7CA04C",
-      "desc": "2 Rice + 2 Chicken Leg + 2 Sides + 2 Drinks"
-    },
-    {
-      "meal_id": 42,
-      "menu_code": "HC-042",
-      "meal_name": "雙人魚香餐 Couple Set — Fish & Skin",
-      "short_name": "Couple Set 2",
-      "price": 75909,
-      "category_id": 3,
-      "emoji": "🐟",
-      "color1": "#1E3E5B",
-      "color2": "#4C7CA0",
-      "desc": "2 Rice + Fried Fish + Crispy Skin + 2 Drinks"
-    },
-    {
-      "meal_id": 61,
-      "menu_code": "HC-061",
-      "meal_name": "今日特餐 Chef's Daily Special",
-      "short_name": "Daily Special",
-      "price": 39091,
-      "category_id": 6,
-      "emoji": "⭐",
-      "color1": "#8C6B2B",
-      "color2": "#C4A41F",
-      "desc": "Ask the robot! Rotating special of the day"
-    },
-    {
-      "meal_id": 62,
-      "menu_code": "HC-062",
-      "meal_name": "滷肉飯 Braised Pork Rice",
-      "short_name": "Braised Pork Rice",
-      "price": 35909,
-      "category_id": 6,
-      "emoji": "🍚",
-      "color1": "#5B2B1E",
-      "color2": "#9C5A3C",
-      "desc": "Taiwan classic minced pork over rice + egg"
-    },
-    {
-      "meal_id": 51,
-      "menu_code": "HC-051",
-      "meal_name": "牛肉麵 Beef Noodle Soup",
-      "short_name": "Beef Noodles",
-      "price": 57727,
-      "category_id": 4,
-      "emoji": "🍲",
-      "color1": "#6B3A1D",
-      "color2": "#A0662C",
-      "desc": "Slow-braised beef shank, rich broth, handmade noodles",
-      "option_groups": [
-        {
-          "name": "Noodle 麵條",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Thin Noodle 細麵",
-              "price": 0
-            },
-            {
-              "name": "Wide Noodle 寬麵",
-              "price": 0
-            }
-          ]
-        },
-        {
-          "name": "Extra 加料",
-          "required": false,
-          "max": 2,
-          "options": [
-            {
-              "name": "Extra Beef 加牛肉",
-              "price": 15000
-            },
-            {
-              "name": "Egg 滷蛋",
-              "price": 5000
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "meal_id": 52,
-      "menu_code": "HC-052",
-      "meal_name": "脆皮烤鴨飯 Crispy Duck Rice",
-      "short_name": "Crispy Duck Rice",
-      "price": 72727,
-      "category_id": 4,
-      "emoji": "🦆",
-      "color1": "#4A1D6B",
-      "color2": "#7C2CA0",
-      "desc": "Half crispy duck, plum sauce, rice & greens"
-    },
-    {
-      "meal_id": 53,
-      "menu_code": "HC-053",
-      "meal_name": "宮保雞丁飯 Kung Pao Chicken Rice",
-      "short_name": "Kung Pao Chicken",
-      "price": 45455,
-      "category_id": 4,
-      "emoji": "🥡",
-      "color1": "#8C2B4A",
-      "color2": "#C41F5A",
-      "desc": "Wok-tossed chicken, dried chili, peanuts"
-    },
-    {
-      "meal_id": 71,
-      "menu_code": "HC-071",
-      "meal_name": "黃金豆腐 Golden Tofu",
-      "short_name": "Golden Tofu",
-      "price": 15455,
-      "category_id": 5,
-      "emoji": "🧈",
-      "color1": "#8C7B2B",
-      "color2": "#C4B41F",
-      "desc": "Crispy egg tofu with salted egg dust"
-    },
-    {
-      "meal_id": 72,
-      "menu_code": "HC-072",
-      "meal_name": "皮蛋豆腐 Century Egg Tofu",
-      "short_name": "Century Egg Tofu",
-      "price": 13636,
-      "category_id": 5,
-      "emoji": "🥚",
-      "color1": "#2B4A3E",
-      "color2": "#1F8C6B",
-      "desc": "Chilled silken tofu, century egg, bonito"
-    },
-    {
-      "meal_id": 73,
-      "menu_code": "HC-073",
-      "meal_name": "涼拌小黃瓜 Pickled Cucumber",
-      "short_name": "Pickled Cucumber",
-      "price": 11818,
-      "category_id": 5,
-      "emoji": "🥒",
-      "color1": "#3E6B1D",
-      "color2": "#66A02C",
-      "desc": "Smashed cucumber, garlic & sesame"
-    },
-    {
-      "meal_id": 81,
-      "menu_code": "HC-081",
-      "meal_name": "珍珠奶茶 Bubble Milk Tea",
-      "short_name": "Bubble Milk Tea",
-      "price": 22727,
-      "category_id": 7,
-      "emoji": "🧋",
-      "color1": "#5B4A3E",
-      "color2": "#9C8270",
-      "desc": "Classic boba with brown sugar pearls",
-      "option_groups": [
-        {
-          "name": "Sugar 甜度",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Normal 正常糖",
-              "price": 0
-            },
-            {
-              "name": "Less 半糖",
-              "price": 0
-            },
-            {
-              "name": "No Sugar 無糖",
-              "price": 0
-            }
-          ]
-        },
-        {
-          "name": "Ice 冰塊",
-          "required": true,
-          "max": 1,
-          "options": [
-            {
-              "name": "Normal Ice 正常冰",
-              "price": 0
-            },
-            {
-              "name": "Less Ice 少冰",
-              "price": 0
-            },
-            {
-              "name": "No Ice 去冰",
-              "price": 0
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "meal_id": 82,
-      "menu_code": "HC-082",
-      "meal_name": "冬瓜茶 Winter Melon Tea",
-      "short_name": "Winter Melon Tea",
-      "price": 13636,
-      "category_id": 7,
-      "emoji": "🥤",
-      "color1": "#2B5B4A",
-      "color2": "#1FA47C",
-      "desc": "House-brewed, lightly sweet"
-    },
-    {
-      "meal_id": 83,
-      "menu_code": "HC-083",
-      "meal_name": "Es Teh Manis Jumbo",
-      "short_name": "Es Teh Jumbo",
-      "price": 9091,
-      "category_id": 7,
-      "emoji": "🧃",
-      "color1": "#8C4A2B",
-      "color2": "#C47B1F",
-      "desc": "Jumbo sweet iced tea"
-    }
+    { "meal_id": 101, "menu_code": "ED-101", "meal_name": "鮪 Maguro, tuna nigiri", "short_name": "Maguro, tuna", "price": 20000, "category_id": 1, "plate": "blue", "desc": "Two pieces, lean cut" },
+    { "meal_id": 102, "menu_code": "ED-102", "meal_name": "鮭 Sake, salmon nigiri", "short_name": "Salmon", "price": 15000, "category_id": 1, "plate": "red", "desc": "Two pieces",
+      "option_groups": [{ "name": "Style", "required": true, "max": 1, "options": [{ "name": "Plain", "price": 0 }, { "name": "Aburi, torched", "price": 5000 }] }] },
+    { "meal_id": 103, "menu_code": "ED-103", "meal_name": "海老 Ebi, prawn nigiri", "short_name": "Ebi, prawn", "price": 15000, "category_id": 1, "plate": "red", "desc": "Two pieces, boiled prawn" },
+    { "meal_id": 104, "menu_code": "ED-104", "meal_name": "玉子 Tamago, egg nigiri", "short_name": "Tamago, egg", "price": 15000, "category_id": 1, "plate": "red", "desc": "Two pieces, sweet rolled omelette" },
+    { "meal_id": 105, "menu_code": "ED-105", "meal_name": "鰤 Hamachi, yellowtail nigiri", "short_name": "Hamachi, yellowtail", "price": 30000, "category_id": 1, "plate": "black", "desc": "Two pieces" },
+    { "meal_id": 106, "menu_code": "ED-106", "meal_name": "鰻 Unagi, eel nigiri", "short_name": "Unagi, eel", "price": 30000, "category_id": 1, "plate": "black", "desc": "Two pieces, grilled with tare" },
+    { "meal_id": 107, "menu_code": "ED-107", "meal_name": "帆立 Hotate, scallop nigiri", "short_name": "Hotate, scallop", "price": 25000, "category_id": 1, "plate": "green", "desc": "Two pieces" },
+    { "meal_id": 108, "menu_code": "ED-108", "meal_name": "蛸 Tako, octopus nigiri", "short_name": "Tako, octopus", "price": 25000, "category_id": 1, "plate": "green", "desc": "Two pieces" },
+    { "meal_id": 109, "menu_code": "ED-109", "meal_name": "稲荷 Inari, tofu pocket", "short_name": "Inari", "price": 15000, "category_id": 1, "plate": "red", "desc": "Two pieces, sweet fried tofu" },
+    { "meal_id": 121, "menu_code": "ED-121", "meal_name": "いくら Ikura gunkan", "short_name": "Ikura, salmon roe", "price": 40000, "category_id": 2, "plate": "gold", "desc": "Two pieces" },
+    { "meal_id": 122, "menu_code": "ED-122", "meal_name": "ねぎとろ Negitoro gunkan", "short_name": "Negitoro", "price": 20000, "category_id": 2, "plate": "blue", "desc": "Two pieces, minced tuna and spring onion" },
+    { "meal_id": 123, "menu_code": "ED-123", "meal_name": "蟹マヨ Kani mayo gunkan", "short_name": "Kani mayo", "price": 15000, "category_id": 2, "plate": "red", "desc": "Two pieces" },
+    { "meal_id": 124, "menu_code": "ED-124", "meal_name": "雲丹 Uni gunkan", "short_name": "Uni, sea urchin", "price": 40000, "category_id": 2, "plate": "gold", "desc": "Two pieces, when the catch allows" },
+    { "meal_id": 131, "menu_code": "ED-131", "meal_name": "かっぱ巻 Kappa maki", "short_name": "Kappa maki, cucumber", "price": 15000, "category_id": 3, "plate": "red", "desc": "Six pieces",
+      "option_groups": [{ "name": "Wasabi", "required": true, "max": 1, "options": [{ "name": "With wasabi", "price": 0 }, { "name": "Without", "price": 0 }] }] },
+    { "meal_id": 132, "menu_code": "ED-132", "meal_name": "鉄火巻 Tekka maki", "short_name": "Tekka maki, tuna", "price": 20000, "category_id": 3, "plate": "blue", "desc": "Six pieces",
+      "option_groups": [{ "name": "Wasabi", "required": true, "max": 1, "options": [{ "name": "With wasabi", "price": 0 }, { "name": "Without", "price": 0 }] }] },
+    { "meal_id": 133, "menu_code": "ED-133", "meal_name": "カリフォルニア California roll", "short_name": "California roll", "price": 25000, "category_id": 3, "plate": "green", "desc": "Eight pieces, crab stick and avocado" },
+    { "meal_id": 134, "menu_code": "ED-134", "meal_name": "スパイシーツナ Spicy tuna roll", "short_name": "Spicy tuna roll", "price": 25000, "category_id": 3, "plate": "green", "desc": "Eight pieces",
+      "option_groups": [{ "name": "Heat", "required": true, "max": 1, "options": [{ "name": "Mild", "price": 0 }, { "name": "Medium", "price": 0 }, { "name": "Hot", "price": 0 }] }] },
+    { "meal_id": 141, "menu_code": "ED-141", "meal_name": "茶碗蒸し Chawanmushi", "short_name": "Chawanmushi", "price": 25000, "category_id": 4, "plate": "green", "desc": "Steamed egg custard with prawn and shiitake" },
+    { "meal_id": 142, "menu_code": "ED-142", "meal_name": "味噌汁 Miso soup", "short_name": "Miso soup", "price": 15000, "category_id": 4, "plate": "red", "desc": "Tofu and wakame" },
+    { "meal_id": 143, "menu_code": "ED-143", "meal_name": "唐揚げ Karaage", "short_name": "Chicken karaage", "price": 20000, "category_id": 4, "plate": "blue", "desc": "Four pieces, lemon",
+      "option_groups": [{ "name": "Portion", "required": true, "max": 1, "options": [{ "name": "Four pieces", "price": 0 }, { "name": "Eight pieces", "price": 15000 }] }] },
+    { "meal_id": 144, "menu_code": "ED-144", "meal_name": "天ぷらうどん Tempura udon", "short_name": "Tempura udon", "price": 30000, "category_id": 4, "plate": "black", "desc": "Hot udon with one prawn tempura" },
+    { "meal_id": 151, "menu_code": "ED-151", "meal_name": "餅アイス Mochi ice", "short_name": "Mochi ice", "price": 15000, "category_id": 5, "plate": "red", "desc": "Two pieces",
+      "option_groups": [{ "name": "Flavour", "required": true, "max": 1, "options": [{ "name": "Matcha", "price": 0 }, { "name": "Mango", "price": 0 }, { "name": "Black sesame", "price": 0 }] }] },
+    { "meal_id": 152, "menu_code": "ED-152", "meal_name": "抹茶プリン Matcha pudding", "short_name": "Matcha pudding", "price": 15000, "category_id": 5, "plate": "red", "desc": "With red bean" },
+    { "meal_id": 161, "menu_code": "ED-161", "meal_name": "お茶 Ocha, hot green tea", "short_name": "Ocha, green tea", "price": 5000, "category_id": 6, "plate": "red", "desc": "Refills from the tap at your seat" },
+    { "meal_id": 162, "menu_code": "ED-162", "meal_name": "ラムネ Ramune", "short_name": "Ramune", "price": 15000, "category_id": 6, "plate": "red", "desc": "Original or melon",
+      "option_groups": [{ "name": "Flavour", "required": true, "max": 1, "options": [{ "name": "Original", "price": 0 }, { "name": "Melon", "price": 0 }] }] },
+    { "meal_id": 163, "menu_code": "ED-163", "meal_name": "Es Teh Manis", "short_name": "Es teh manis", "price": 10000, "category_id": 6, "plate": "red", "desc": "Sweet iced tea, large" }
   ]
 }

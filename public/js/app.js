@@ -1,8 +1,8 @@
 'use strict';
-/* Hong Chiang Ordering — the order sheet (點餐單) as the interface.
- * Journey: home → (dine-in: table + pax | takeout) → menu (the sheet) → slip → Save Order → status (pay at the cashier).
- * Backed by the Hong-Chiang KDS API via /api/kds/* (tables/search, orders/details, walkIns/get)
- * plus the app's own /api/menu, /api/checkout and /api/bridge/* (proxied from midhong).
+/* Edo Sushi Ordering — the stack of coloured plates (the kaiten bill) as the interface.
+ * Journey: home → (dine-in: table + pax | takeout) → menu (the belt) → slip (the stack) → Save Order → status (pay at the cashier).
+ * Backed by the Hong-Chiang KDS API (the SaaS vendor's kitchen display) via /api/kds/* (tables/search,
+ * orders/details, walkIns/get) plus the app's own /api/menu, /api/checkout and /api/bridge/* (proxied from midhong).
  */
 
 const $app = document.getElementById('app');
@@ -21,26 +21,28 @@ const S = {
 };
 
 /* Real pictures of this subject's world, found in the open collections and downloaded into /img
- * (credits in FOOTER_CREDITS). They show the world around the canteen, never its own dishes. */
+ * (credits in FOOTER_CREDITS): Edo-period prints for the name, a real plate stack for the ritual.
+ * They show the world around the restaurant, never its own dishes. */
 const PHOTOS = {
-  sign:   { src: '/img/noodle-shop-sign.jpg',     w: 1200, h: 1800, pos: '50% 45%', cap: 'Shop signs, Changhua',
-            alt: 'Lit shop signs with red brush characters over a street at dusk, Changhua, Taiwan' },
-  street: { src: '/img/yongkang-noodle-shop.jpg', w: 1600, h: 1092, pos: '20% 50%', cap: 'Yongkang Street, Taipei',
-            alt: 'A noodle shop front on Yongkang Street, Taipei, on a wet afternoon' },
-  tea:    { src: '/img/pearl-milk-tea.jpg',       w: 1200, h: 1600, pos: '50% 60%', cap: 'Pearl milk tea, Taichung',
-            alt: 'A tall glass of pearl milk tea on a wooden table beside an order slip' },
-  noodle: { src: '/img/beef-noodle-soup.jpg',     w: 1600, h: 1198, pos: '50% 50%', cap: 'Beef noodle soup, Taipei',
-            alt: 'A spoon lifting beef and tendon from a bowl of red-braised beef noodle soup' },
-  robot:  { src: '/img/delivery-robot.jpg',       w: 1200, h: 1243, pos: '50% 50%', cap: 'Delivery robot, family restaurant, Chiba',
-            alt: 'A yellow delivery robot carrying two trays of food between restaurant tables' },
+  nihonbashi: { src: '/img/edo-nihonbashi.jpg',  w: 1200, h: 1779, pos: '50% 40%', cap: 'Nihonbashi, Edo, 1858 (Hiroshige)',
+                alt: 'Woodblock print of a crowded street of shops in Edo, with parasols and a large decorated umbrella, by Hiroshige' },
+  sushi:      { src: '/img/edo-sake-sushi.jpg',  w: 1600, h: 1211, pos: '60% 60%', cap: 'New Year’s sake and sushi, Edo, about 1810',
+                alt: 'Woodblock print of a tray of rolled and pressed sushi beside a patterned cup of sake, with a poem' },
+  bonito:     { src: '/img/edo-bonito.jpg',      w: 1600, h: 1093, pos: '40% 60%', cap: 'Bonito, Hiroshige, about 1832',
+                alt: 'Woodblock print of a blue bonito lying beside sprigs of saxifrage, with calligraphy above' },
+  fish:       { src: '/img/edo-flying-fish.jpg', w: 1600, h: 1112, pos: '50% 50%', cap: 'Flying fish and ichimochi, Hiroshige, about 1840',
+                alt: 'Woodblock print of a flying fish and a white croaker on a pale ground' },
+  stack:      { src: '/img/plate-stack.jpg',     w: 1200, h: 1800, pos: '50% 45%', cap: 'Plates at a sushi belt, Taiwan',
+                alt: 'A tall stack of empty orange, black and white plates beside a sushi conveyor belt' },
+  piled:      { src: '/img/plates-piled.jpg',    w: 1200, h: 1600, pos: '50% 50%', cap: 'Plates piled up, Ueno, Tokyo',
+                alt: 'Empty sushi plates piled high on a counter at a conveyor-belt restaurant in Tokyo' },
 };
 const FOOTER_CREDITS = 'Pictures: '
-  + '<a href="https://commons.wikimedia.org/w/index.php?curid=29127725">“Shop sign of the Cat Mouse Noodles, Changhua”</a> by Mk2010, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; '
-  + '<a href="https://commons.wikimedia.org/wiki/File:TW_%E5%8F%B0%E7%81%A3_Taiwan_%E5%8F%B0%E5%8C%97_Taipei_%E6%B0%B8%E5%BA%B7%E8%A1%97_10_YongKang_Street_%E5%8F%B0%E7%81%A3%E4%B8%80%E5%93%81_noodle_shop_March_2024_R12S_03.jpg">“Yongkang Street noodle shop, Taipei, 2024”</a> by MAm ROFOW 022, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
-  + '<a href="https://commons.wikimedia.org/w/index.php?curid=148903552">“Pearl Milk Tea in Chun Shui Tang”</a> by Battlesnake1, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
-  + '<a href="https://commons.wikimedia.org/w/index.php?curid=142538801">“Taiwanese Beef Noodle Soup from 穆記牛肉麵, Taipei”</a> by midnightbreakfastcafe, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>; '
-  + '<a href="https://commons.wikimedia.org/w/index.php?curid=151258187">“Delivery robot at family restaurant in Chiba”</a> by Syced, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>. '
-  + 'Footage: <a href="https://commons.wikimedia.org/wiki/File:Hualien-taiwan-nightmarket2011.ogv">“Hualien night market, 2011”</a> by Nesnad, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>. All via Wikimedia Commons.';
+  + '<a href="https://www.artic.edu/artworks/34241">“View of Nihonbashi Tori-itchome”</a> (1858) and <a href="https://www.artic.edu/artworks/26727">“Bonito and saxifrage”</a> and <a href="https://www.artic.edu/artworks/26724">“Flying fish and ichimochi”</a> by Utagawa Hiroshige, the Art Institute of Chicago, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
+  + '<a href="https://www.metmuseum.org/art/collection/search/54455">“New Year’s Sake and Sushi”</a> (about 1810), the Metropolitan Museum of Art, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>; '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=179146020">“A stack of empty sushi plates at a conveyor belt sushi restaurant in Taiwan”</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>; '
+  + '<a href="https://commons.wikimedia.org/w/index.php?curid=56825774">“お皿が山積み”</a> by Taichiro Ueki, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>. '
+  + 'Footage: <a href="https://commons.wikimedia.org/wiki/File:Moving_Sushi_P1130190.ogv">“Moving Sushi”</a> (2012), <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>, via Wikimedia Commons.';
 
 const BRIDGE_STAGES = [
   ['queued', 'Sent to the till bridge'],
@@ -77,7 +79,34 @@ function toast(msg) {
   $toast.appendChild(el);
   setTimeout(() => el.remove(), 2200);
 }
-function cjk(s) { const m = String(s || '').match(/[㐀-鿿][㐀-鿿\s]*/); return m ? m[0].trim() : ''; }
+function cjk(s) { const m = String(s || '').match(/[぀-ヿ㐀-鿿][぀-ヿ㐀-鿿\s]*/); return m ? m[0].trim() : ''; }
+/* every item is a plate of one colour; the catalog says which, else the price tier decides */
+function plateOf(meal) {
+  if (meal.plate) return meal.plate;
+  const tiers = (S.menu.store && S.menu.store.plates) || {};
+  let best = 'red';
+  for (const [c, p] of Object.entries(tiers)) if (meal.price >= p && p >= (tiers[best] || 0)) best = c;
+  return best;
+}
+function plateHTML(colour, cls) { return `<span class="plate plate-${esc(colour)} ${cls || ''}" aria-hidden="true"></span>`; }
+function plateCounts(cart) {
+  const counts = {};
+  for (const i of cart) { const c = plateOf(mealById(i.meal_id)); counts[c] = (counts[c] || 0) + i.qty; }
+  return counts;
+}
+function stackHTML(counts, limit = 18) {
+  const order = ['red', 'blue', 'green', 'black', 'gold'];
+  const plates = order.flatMap(c => Array(counts[c] || 0).fill(c));
+  if (!plates.length) return '';
+  const shown = plates.slice(0, limit);
+  return `<div class="stack" aria-hidden="true">${shown.map(c => plateHTML(c)).join('')}</div>`;
+}
+function stackSummary(counts) {
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (!total) return '';
+  const parts = ['red', 'blue', 'green', 'black', 'gold'].filter(c => counts[c]).map(c => `${counts[c]} ${c}`);
+  return `<p class="stack-sum">${total} ${total === 1 ? 'plate' : 'plates'} <span>${parts.join(', ')}</span></p>`;
+}
 function word(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/^(table|meja|t)\s*/, ''); }
 function hours() { return (S.menu && S.menu.store && S.menu.store.hours) || 'Open today 10:00–22:00'; }
@@ -125,7 +154,7 @@ function calmVideos() {
 }
 
 /* ---------------------------------------------------------------- fragments */
-const WORDMARK = `<a class="wordmark" href="#/">Hong Chiang <span lang="zh-Hant">鴻匠</span></a>`;
+const WORDMARK = `<a class="wordmark" href="#/">Edo Sushi <span lang="ja">江戸</span></a>`;
 function topnav(left, right) { return `<nav class="topnav" aria-label="Top">${left}${WORDMARK}${right}</nav>`; }
 function photoStack(keys, { eager } = {}) {
   return `<figure class="photos" data-photos="${keys.join(',')}">${keys.map((k, i) => {
@@ -135,24 +164,30 @@ function photoStack(keys, { eager } = {}) {
 }
 function hoursBar(right) { return `<div class="hours" data-rise style="--i:2"><span>${esc(hours())}</span><span>${right || 'Pay at the counter'}</span></div>`; }
 function slipDemo() {
+  const demo = { red: 3, blue: 1, gold: 1 };
   return `<div class="slipdemo" data-ui data-state="1" aria-hidden="true">
-    <div class="sd-head"><span class="sd-table">5</span><span class="sd-meta">Table 桌號<br>2 orang</span></div>
-    <ul class="sd-lines"><li><span>2 × 滷肉飯 Braised Pork Rice</span><span>Rp71.818</span></li><li><span>1 × 珍珠奶茶 Bubble Milk Tea</span><span>Rp22.727</span></li></ul>
-    <p class="sd-empty">Nothing ticked yet</p>
-    <dl class="sd-sum"><div><dt>Subtotal</dt><dd>Rp94.545</dd></div><div><dt>Service 10%</dt><dd>Rp9.455</dd></div><div class="tot"><dt>Total</dt><dd>Rp104.000</dd></div></dl>
-    <div class="sd-stamp">Paid 已付<small>bill 2026101400017</small></div>
+    <div class="sd-head"><span class="sd-table">5</span><span class="sd-meta">Table 卓<br>2 orang</span></div>
+    <div class="sd-stack">${stackHTML(demo)}${stackSummary(demo)}</div>
+    <ul class="sd-lines">
+      <li>${plateHTML('red')}<span>3 × Salmon</span><span>Rp45.000</span></li>
+      <li>${plateHTML('blue')}<span>1 × Maguro, tuna</span><span>Rp20.000</span></li>
+      <li>${plateHTML('gold')}<span>1 × Ikura, salmon roe</span><span>Rp40.000</span></li>
+    </ul>
+    <p class="sd-empty">No plates on the stack yet</p>
+    <dl class="sd-sum"><div><dt>Subtotal</dt><dd>Rp105.000</dd></div><div><dt>Service 10%</dt><dd>Rp10.500</dd></div><div class="tot"><dt>Total</dt><dd>Rp115.500</dd></div></dl>
+    <div class="sd-stamp">Paid 済<small>bill 2026101500017</small></div>
   </div>`;
 }
 function footer() {
   return `<footer class="foot">
-    <img class="foot-img" src="/img/night-market-poster.jpg" width="1280" height="720" alt="" loading="lazy" decoding="async">
-    <video autoplay muted loop playsinline preload="metadata" poster="/img/night-market-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/night-market.webm" type="video/webm"></video>
+    <img class="foot-img" src="/img/sushi-train-poster.jpg" width="1280" height="720" alt="" loading="lazy" decoding="async">
+    <video autoplay muted loop playsinline preload="metadata" poster="/img/sushi-train-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/sushi-train.webm" type="video/webm"></video>
     <div class="foot-top">
       <nav aria-label="Pages"><a href="#/tables">Dine-in</a><a href="#/menu?mode=walkin">Takeout</a><a href="#/takeout">Takeout board</a><a href="#/bridge">Bridge monitor</a></nav>
-      <p>${esc(hours())}<br>Pay at the counter</p>
+      <p>${esc(hours())}<br>Pay by the plate at the counter</p>
     </div>
     <div>
-      <p class="foot-name" aria-hidden="true">Hong Chiang <span lang="zh-Hant">鴻匠</span></p>
+      <p class="foot-name" aria-hidden="true">Edo Sushi <span lang="ja">江戸</span></p>
       <p class="credits">${FOOTER_CREDITS}</p>
     </div>
   </footer>`;
@@ -191,24 +226,24 @@ function renderHome() {
   $app.innerHTML = `
     <div class="stage home">
       <aside class="still" id="still" data-show="photo">
-        ${photoStack(['sign', 'street', 'tea', 'noodle'], { eager: true })}
+        ${photoStack(['nihonbashi', 'sushi', 'bonito', 'fish'], { eager: true })}
         <div class="stage-slip">${slipDemo()}</div>
         ${hoursBar()}
       </aside>
       <section class="sheet">
         ${topnav(`<a href="#/menu?mode=walkin">Takeout</a>`, `<a href="#/takeout">Board</a>`)}
         <div class="hero">
-          <h1 class="head" data-rise style="--i:0">Order here,<br>pay at the counter</h1>
-          <p class="lead" data-rise style="--i:1">Tick the dishes you want. The kitchen starts at once, and the cashier settles your bill when you are done.</p>
+          <h1 class="head" data-rise style="--i:0">Order here,<br>pay by the plate</h1>
+          <p class="lead" data-rise style="--i:1">Take plates from the belt or tick them here. Every plate has a colour and a price, and the cashier counts your stack at the counter.</p>
           <a class="button" href="#/tables" data-rise style="--i:2">Order dine-in</a>
           <a class="link" href="#/menu?mode=walkin" data-rise style="--i:3">Order for takeout</a>
         </div>
         <section class="howit" id="howit" aria-labelledby="howit-h">
-          <h2 class="lead-h" id="howit-h">How the sheet works</h2>
+          <h2 class="lead-h" id="howit-h">How the plates work</h2>
           <ol class="statements">
-            <li data-step="1"><p class="statement">Tick the sheet.</p><p>Every dish on the menu has a box. Tap it and the line is on your slip, with its price beside it.</p></li>
-            <li data-step="2"><p class="statement">The kitchen cooks.</p><p>Your slip goes straight to the kitchen display and to the till. The tray comes to your table.</p></li>
-            <li data-step="3"><p class="statement">Pay at the counter.</p><p>Show the cashier your table number. When the bill is settled, your slip is stamped paid.</p></li>
+            <li data-step="1"><p class="statement">Pick your plates.</p><p>Every item on the belt is a plate of one colour. Tap it and it joins your stack, with its price.</p></li>
+            <li data-step="2"><p class="statement">The kitchen sends them.</p><p>Your stack goes straight to the kitchen display and to the till. The plates come down the lane to your seat.</p></li>
+            <li data-step="3"><p class="statement">Pay by the plate.</p><p>Show the cashier your table number. The stack is counted by colour, settled, and stamped paid.</p></li>
           </ol>
         </section>
         <section class="tablefield" aria-labelledby="tf-h">
@@ -221,6 +256,7 @@ function renderHome() {
           <p class="after small" id="table-msg">We check it against the floor plan before you order.</p>
           <dl class="facts">
             <div><dt>Hours</dt><dd>${esc(hours())}</dd></div>
+            <div><dt>Plates</dt><dd>${platePrices()}</dd></div>
             <div><dt>Takeout</dt><dd><a href="#/menu?mode=walkin">Order and collect at the counter</a></dd></div>
             <div><dt>Floor plan</dt><dd><a href="#/tables">Pick a table from the list</a></dd></div>
           </dl>
@@ -233,6 +269,12 @@ function renderHome() {
   howitObserver();
   tableForm();
   calmVideos();
+}
+
+function platePrices() {
+  const tiers = (S.menu.store && S.menu.store.plates) || {};
+  const parts = Object.entries(tiers).sort((a, b) => a[1] - b[1]).map(([c, p]) => `${plateHTML(c)} ${c} ${fmt(p)}`);
+  return parts.length ? `<span class="plate-list">${parts.join(', ')}</span>` : 'One price per plate colour';
 }
 
 function howitObserver() {
@@ -279,7 +321,7 @@ function tableForm() {
 async function renderTables() {
   $app.innerHTML = `
     <div class="stage">
-      <aside class="still">${photoStack(['street', 'sign', 'tea', 'noodle'])}${hoursBar()}</aside>
+      <aside class="still">${photoStack(['bonito', 'nihonbashi', 'sushi', 'fish'])}${hoursBar()}</aside>
       <section class="sheet">
         ${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/menu?mode=walkin">Takeout</a>`)}
         <h1 class="head" data-rise style="--i:0">Pick a free table</h1>
@@ -324,16 +366,18 @@ function paxSheet() {
 /* -------------------------------------------------------- menu: the sheet */
 function photoFor(cat) {
   const n = String(cat.name).toLowerCase();
-  if (/drink|飲|minum/.test(n)) return 'tea';
-  if (/main|主食|special|特餐|noodle|麵/.test(n)) return 'noodle';
-  if (/side|小菜/.test(n)) return 'street';
-  return 'sign';
+  if (/nigiri|sashimi/.test(n)) return 'bonito';
+  if (/gunkan|roe/.test(n)) return 'fish';
+  if (/maki|roll|sweet|dessert/.test(n)) return 'sushi';
+  return 'nihonbashi';
 }
 function rowHTML(m, i) {
   const zh = cjk(m.meal_name);
   const n = cartQty(m.meal_id);
+  const colour = plateOf(m);
   return `<li class="row" data-meal="${m.meal_id}" data-reveal style="--i:${i}">
-    <button class="row-name" data-open="${m.meal_id}"><span class="nm">${esc(m.short_name)}</span>${zh ? `<span class="zh">${esc(zh)}</span>` : ''}${m.desc ? `<span class="ds">${esc(m.desc)}</span>` : ''}</button>
+    ${plateHTML(colour)}
+    <button class="row-name" data-open="${m.meal_id}"><span class="nm">${esc(m.short_name)}</span>${zh ? `<span class="zh">${esc(zh)}</span>` : ''}<span class="ds">${esc(colour)} plate${m.desc ? ', ' + esc(m.desc) : ''}</span></button>
     <span class="price nums">${fmt(m.price)}</span>
     ${qtyHTML(m, n)}
   </li>`;
@@ -368,8 +412,8 @@ function renderMenu() {
         <div class="slip" id="slip"></div>
       </aside>
       <section class="sheet">
-        ${topnav(`<a class="back" href="${dinein ? '#/tables' : '#/'}">${dinein ? 'Tables' : 'Home'}</a>`, `<a href="#/cart">Slip</a>`)}
-        <h1 class="head head-xl">The sheet</h1>
+        ${topnav(`<a class="back" href="${dinein ? '#/tables' : '#/'}">${dinein ? 'Tables' : 'Home'}</a>`, `<a href="#/cart">Stack</a>`)}
+        <h1 class="head head-xl">The belt</h1>
         <p class="lead">${dinein && S.session.table ? `Table ${esc(S.session.table.name)}${S.session.pax ? ', ' + esc(S.session.pax) : ''}` : 'Takeout, collected at the counter'}</p>
         <nav class="cats" id="cats" aria-label="Categories">${cats.map((c, i) => `<a href="#/menu" data-cat="${c.id}" class="${i === 0 ? 'is-on' : ''}">${esc(c.name)}</a>`).join('')}</nav>
         ${cats.map(c => `
@@ -393,7 +437,7 @@ function renderMenu() {
     if (inc) {
       const meal = mealById(inc.dataset.inc);
       if (meal.option_groups && meal.option_groups.length) mealSheet(meal);
-      else { addToCart(meal, 1, {}, 0, ''); toast(meal.short_name + ' on the slip'); }
+      else { addToCart(meal, 1, {}, 0, ''); toast(meal.short_name + ' on the stack'); }
       return;
     }
     if (dec) {
@@ -435,25 +479,28 @@ function addToCart(meal, qty, options, optionsPrice, remarks) {
 function slipHTML({ full } = {}) {
   const dinein = S.session.mode === 'dinein';
   const head = dinein && S.session.table
-    ? `<div class="slip-table"><span class="t-num nums">${esc(S.session.table.name)}</span><span class="t-meta">Table 桌號${S.session.pax ? '<br>' + esc(S.session.pax) : ''}</span></div>`
-    : `<div class="slip-table"><span class="t-meta">Takeout 外帶<br>collected at the counter</span></div>`;
+    ? `<div class="slip-table"><span class="t-num nums">${esc(S.session.table.name)}</span><span class="t-meta">Table 卓${S.session.pax ? '<br>' + esc(S.session.pax) : ''}</span></div>`
+    : `<div class="slip-table"><span class="t-meta">Takeout 持ち帰り<br>collected at the counter</span></div>`;
+  const counts = plateCounts(S.cart);
+  const stack = S.cart.length ? `${stackHTML(counts)}${stackSummary(counts)}` : '';
   const lines = S.cart.length ? `<ul class="slip-lines">${S.cart.map(i => {
     const m = mealById(i.meal_id);
     const ops = Object.values(i.options || {}).flat();
     return `<li data-uid="${i.uid}">
+      ${plateHTML(plateOf(m))}
       <span class="ln">${i.qty} × ${esc(m.short_name)}${ops.length ? `<span class="op">${ops.map(esc).join(', ')}</span>` : ''}</span>
       <span class="pr nums">${fmt(itemPrice(i))}</span>
       ${full ? `<span class="ctl"><span class="stepper"><button data-dec-uid="${i.uid}" aria-label="One less">−</button><b>${i.qty}</b><button data-inc-uid="${i.uid}" aria-label="One more">+</button></span>${m.option_groups && m.option_groups.length ? `<button class="ghost" data-edit="${i.uid}">Change options</button>` : ''}</span>` : ''}
     </li>`;
-  }).join('')}</ul>` : `<p class="slip-empty">Nothing ticked yet.</p>`;
+  }).join('')}</ul>` : `<p class="slip-empty">No plates on your stack yet.</p>`;
   const sums = S.cart.length ? `<dl class="sum nums">
       <div><dt>Subtotal</dt><dd>${fmt(cartSubtotal())}</dd></div>
       <div><dt>Service 10%</dt><dd>${fmt(serviceFee())}</dd></div>
       <div class="tot"><dt>Total</dt><dd>${fmt(cartTotal())}</dd></div></dl>` : '';
   const note = S.cart.length ? `<p class="note"><label class="sr-only" for="order-note">A note for the kitchen</label><input class="field" id="order-note" placeholder="A note for the kitchen" value="${esc(S.session.note || '')}"></p>` : '';
   const action = S.cart.length ? `<button class="button button-wide" id="save-order">Save order</button>` : '';
-  const title = full ? `<h1 class="head">Your slip</h1>` : `<h2 class="lead-h">Your slip</h2>`;
-  return `${title}${head}${lines}${sums}${note}${action}${!full && S.cart.length ? `<a class="ghost" href="#/cart">Change lines</a>` : ''}`;
+  const title = full ? `<h1 class="head">Your stack</h1>` : `<h2 class="lead-h">Your stack</h2>`;
+  return `${title}${head}${stack}${lines}${sums}${note}${action}${!full && S.cart.length ? `<a class="ghost" href="#/cart">Change plates</a>` : ''}`;
 }
 function bindSlip(slip, repaint) {
   const btn = slip.querySelector('#save-order'); if (btn) btn.onclick = saveOrder;
@@ -472,7 +519,7 @@ function renderSlip() {
   if (bar) {
     const n = cartCount();
     bar.hidden = n === 0;
-    bar.innerHTML = `<span>${n} ${n === 1 ? 'dish' : 'dishes'} on your slip</span><b class="nums">${fmt(cartTotal())}</b>`;
+    bar.innerHTML = `<span>${n} ${n === 1 ? 'plate' : 'plates'} on your stack</span><b class="nums">${fmt(cartTotal())}</b>`;
   }
 }
 
@@ -494,7 +541,7 @@ function mealSheet(meal, existing, after) {
         <button class="x" id="opt-x" aria-label="Close">×</button>
         <h2 id="opt-h">${esc(meal.short_name)}</h2>
         ${zh ? `<p class="zh">${esc(zh)}</p>` : ''}
-        <p class="dp nums">${fmt(meal.price)}</p>
+        <p class="dp nums">${plateHTML(plateOf(meal))} ${fmt(meal.price)}</p>
         ${meal.desc ? `<p class="ds">${esc(meal.desc)}</p>` : ''}
         ${groups.map((g, gi) => `
           <div class="og" data-g="${gi}">
@@ -507,7 +554,7 @@ function mealSheet(meal, existing, after) {
           </div>`).join('')}
         <div class="dialog-foot">
           <div class="tot-row"><span>How many</span><span class="stepper"><button id="q-minus" aria-label="One less">−</button><b>${qty}</b><button id="q-plus" aria-label="One more">+</button></span></div>
-          <button class="button button-wide" id="pkg-add" ${valid() ? '' : 'disabled'}>${existing ? 'Update the line' : 'Put on the slip'}, ${fmt((meal.price + optPrice()) * qty)}</button>
+          <button class="button button-wide" id="pkg-add" ${valid() ? '' : 'disabled'}>${existing ? 'Update the plate' : 'Add to the stack'}, ${fmt((meal.price + optPrice()) * qty)}</button>
         </div>
       </div></div>`;
     painted = true;
@@ -536,7 +583,7 @@ function mealSheet(meal, existing, after) {
         } else {
           addToCart(meal, qty, options, optPrice(), '');
           $sheet.innerHTML = '';
-          toast(meal.short_name + ' on the slip');
+          toast(meal.short_name + ' on the stack');
         }
       }
     };
@@ -548,7 +595,7 @@ function mealSheet(meal, existing, after) {
 function renderCart() {
   $app.innerHTML = `
     <div class="paper"><div class="inner">
-      ${topnav(`<a class="back" href="${S.session.mode ? '#/menu' : '#/'}">${S.session.mode ? 'The sheet' : 'Home'}</a>`, `<span></span>`)}
+      ${topnav(`<a class="back" href="${S.session.mode ? '#/menu' : '#/'}">${S.session.mode ? 'The belt' : 'Home'}</a>`, `<span></span>`)}
       <div class="slip slip-full" id="slip"></div>
     </div></div>`;
   paintCart();
@@ -556,7 +603,7 @@ function renderCart() {
 function paintCart() {
   const slip = document.getElementById('slip');
   if (!slip) return;
-  slip.innerHTML = slipHTML({ full: true }) + (S.cart.length ? '' : `<p><a class="button" href="${S.session.mode ? '#/menu' : '#/'}">Back to the sheet</a></p>`);
+  slip.innerHTML = slipHTML({ full: true }) + (S.cart.length ? '' : `<p><a class="button" href="${S.session.mode ? '#/menu' : '#/'}">Back to the belt</a></p>`);
   bindSlip(slip, paintCart);
 }
 
@@ -581,7 +628,7 @@ async function saveOrder() {
   if (!out.status) { toast('Could not save: ' + out.msg); btn.disabled = false; btn.textContent = 'Save order'; return; }
   S.lastOrder = {
     order_no: out.data.order_no, reservation_id: out.data.reservation_id,
-    mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(),
+    mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(), plates: plateCounts(S.cart),
   };
   S.cart = []; S.session.note = ''; save();
   go('status');
@@ -607,14 +654,15 @@ async function renderStatus(q) {
   const call = String(o.order_no).slice(-4);
   $app.innerHTML = `
     <div class="stage">
-      <aside class="still">${photoStack(['robot', 'street', 'sign', 'tea'])}${hoursBar('Show this screen to the cashier')}</aside>
+      <aside class="still">${photoStack(['stack', 'piled', 'bonito', 'sushi'])}${hoursBar('Show this screen to the cashier')}</aside>
       <section class="sheet cashier">
         <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<span></span>`)}</div>
         <h1 class="display nums" data-rise style="--i:1">${esc(dinein ? o.table.name : call)}</h1>
-        <p class="lead" data-rise style="--i:2">${dinein ? `Table 桌號 ${esc(o.table.name)}<br><span class="muted">Order ${esc(o.order_no)}</span>` : `Takeout 外帶, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
+        <p class="lead" data-rise style="--i:2">${dinein ? `Table 卓 ${esc(o.table.name)}<br><span class="muted">Order ${esc(o.order_no)}</span>` : `Takeout 持ち帰り, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
         <p class="total head nums" data-rise style="--i:3">${fmt(o.total)}</p>
-        <p class="msg" id="cc-msg" data-rise style="--i:4">${o.paid ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier.'}</p>
-        <div class="stamp" id="stamp" ${o.paid ? '' : 'hidden'}>Paid 已付<small id="stamp-sub"></small></div>
+        ${o.plates ? `<div class="plates" data-rise style="--i:4">${stackHTML(o.plates)}${stackSummary(o.plates)}</div>` : ''}
+        <p class="msg" id="cc-msg" data-rise style="--i:5">${o.paid ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier; the plates are counted by colour.'}</p>
+        <div class="stamp" id="stamp" ${o.paid ? '' : 'hidden'}>Paid 済<small id="stamp-sub"></small></div>
         <section class="status-sec" data-reveal><h2 class="lead-h">At the counter</h2><ol class="steps" id="bridge-live"><li class="wait">Asking the till bridge…</li></ol></section>
         <section class="status-sec" data-reveal style="--i:1"><h2 class="lead-h">In the kitchen</h2><ul class="kitchen" id="meals-live"><li class="wait">Asking the kitchen display…</li></ul></section>
         <p class="after-links" data-reveal style="--i:2"><a class="link-plain" href="#/menu">Order more</a><a class="link-plain" href="#/" id="new-session">New session</a></p>
@@ -672,11 +720,11 @@ async function renderStatus(q) {
 async function renderBridge() {
   $app.innerHTML = `
     <div class="stage">
-      <aside class="still">${photoStack(['tea', 'noodle', 'street', 'sign'])}${hoursBar('Staff screen')}</aside>
+      <aside class="still">${photoStack(['sushi', 'bonito', 'nihonbashi', 'fish'])}${hoursBar('Staff screen')}</aside>
       <section class="sheet">
         <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/takeout">Board</a>`)}</div>
         <h1 class="head head-xl" data-rise style="--i:1">Bridge monitor</h1>
-        <p class="muted" id="bm-agent" data-rise style="--i:2">Hong Chiang to the middleware to the ESB till.</p>
+        <p class="muted" id="bm-agent" data-rise style="--i:2">Edo Sushi, through the Hong Chiang kitchen display, to the ESB till.</p>
         <div class="blocks" id="bm-list" data-rise style="--i:3"><p class="wait">Asking the bridge…</p></div>
       </section>
     </div>`;
@@ -696,7 +744,7 @@ async function renderBridge() {
     list.innerHTML = (ov.commands || []).length === 0 ? '<p class="wait">No orders yet. Place one from the sheet.</p>' : ov.commands.map((c, i) => `
       <div class="block" ${first ? `data-reveal style="--i:${i}"` : ''}>
         <div class="ln" ${first ? `data-reveal style="--i:${i + 1}"` : ''}><b>${esc(c.order_no)}</b><span>${LABEL[c.stage] || esc(c.stage)}</span></div>
-        <div class="ln muted" ${first ? `data-reveal style="--i:${i + 2}"` : ''}><span>${c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout'}</span><span>${c.items} ${c.items === 1 ? 'dish' : 'dishes'}, ${fmt(c.total)}</span></div>
+        <div class="ln muted" ${first ? `data-reveal style="--i:${i + 2}"` : ''}><span>${c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout'}</span><span>${c.items} ${c.items === 1 ? 'line' : 'lines'}, ${fmt(c.total)}</span></div>
         ${c.salesNum ? `<div class="ln muted"><span>Sale ${esc(c.salesNum)}</span><span>${c.payment_method ? 'paid ' + esc(c.payment_method) : ''}</span></div>` : ''}
         <p class="muted">${(c.events || []).slice(-3).map(e => `${esc(String(e.t).slice(11, 19))} ${esc(e.detail || e.stage)}`).join('<br>')}</p>
       </div>`).join('');
@@ -710,7 +758,7 @@ async function renderBridge() {
 async function renderTakeout() {
   $app.innerHTML = `
     <div class="stage">
-      <aside class="still">${photoStack(['street', 'tea', 'sign', 'noodle'])}${hoursBar('Staff screen')}</aside>
+      <aside class="still">${photoStack(['nihonbashi', 'sushi', 'fish', 'bonito'])}${hoursBar('Staff screen')}</aside>
       <section class="sheet">
         <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<a href="#/bridge">Bridge</a>`)}</div>
         <h1 class="head head-xl" data-rise style="--i:1">Takeout board</h1>

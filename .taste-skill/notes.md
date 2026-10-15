@@ -129,3 +129,28 @@ ROUND 2: 0 FAIL, 1 WARN (10 moving elements; defended: a monitor that re-renders
 Scores: design 7.5 · usability 8 · creativity 7.5 · content 7.5 → overall 7.6.
 Still short: the stats field is a 90svh grey screen whenever the day is quiet; the staff link row carries three
 plain links and no idea; the pictures repeat apphong's (no honest picture of a till exists in the collections).
+
+# Edo Sushi rebrand (both apps), 2026-10-15
+
+Correction from Dewa: Hong Chiang is the SaaS vendor (the KDS), not the restaurant. The restaurant is Edo Sushi,
+kaiten (conveyor belt), coloured plates at set prices. Design system kept (split stage / the product performs,
+tokens, faces with Noto JP for Japanese); the idea, copy, catalog and pictures redone.
+
+Inventory: the name Edo (old Tokyo, where nigiri was born in the 1820s); the belt; plates by colour = price
+(red 15k, blue 20k, green 25k, black 30k, gold 40k, sample tiers); the stack of empty plates counted by colour at
+the end (the bill); the hot-tea tap at the seat; rupiah and the Indonesian pax question; pay at the counter.
+Idea: On this app, the stack of coloured plates, the kaiten bill counted by colour at the end, becomes the
+slip: every item is a plate of one colour, your stack grows as you tick, and the cashier screen shows the stack
+beside the table number. Competitor test: an à-la-carte sushi bar has no plate colours; with the Edo prints
+(Hiroshige's Nihonbashi and fish, the 1810 sushi-and-sake surimono) the page belongs to this name.
+Live thing: the stack (drawn flat, one ellipse per plate in its real colour) and its count by colour, live as
+you tick; the table-number check against the floor plan stays.
+Copy: "Order here, pay by the plate" · "How the plates work": Pick your plates / The kitchen sends them / Pay by
+the plate · menu heading "The belt" · slip "Your stack" · stamp "Paid 済" · midhong "the Edo Sushi till bridge".
+Pictures: Hiroshige "View of Nihonbashi Tori-itchome" (1858), "Bonito and saxifrage", "Flying fish and ichimochi"
+(AIC, CC0); "New Year's Sake and Sushi" (Met, CC0); "A stack of empty sushi plates…" (Commons, BY-SA 4.0);
+"お皿が山積み" (Commons, BY 2.0); clip "Moving Sushi" (Commons, BY-SA 3.0). Two families on purpose: the prints
+carry the name on the home, tables, menu and boards; the two plate photographs appear only on the status screen,
+where the stack is literal. Credits in the home footer and midhong's caption.
+Gate: home 0 FAIL, menu 0, status 0, midhong 0; npm test 33/33.
+Sample content to confirm: the whole catalog (26 items, plate tiers, option groups) and the hours.

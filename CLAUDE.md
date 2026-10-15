@@ -5,10 +5,17 @@ that mirrors orders into a local **ESB POS** (Indonesian SaaS POS) database.
 Everything below was established and verified in previous sessions — trust it,
 and keep it updated when you change behavior.
 
+**Brands, do not mix them up:** **Hong Chiang** is the SaaS vendor (its KDS /
+kitchen-display API is what the app feeds and what the bridge reads); **ESB** is the
+other SaaS (the POS/till). The restaurant whose name is on the customer-facing app is
+**Edo Sushi**, a kaiten (conveyor-belt) sushi place with coloured plates at set prices
+(red Rp15.000 … gold Rp40.000, sample tiers in `server/data/menu.json`). The value of
+this repo is the middleware between the two SaaS systems.
+
 ## The journey (what this system does)
 
 ```
-Customer (Hong Chiang web app, ESB-Order-style UI)
+Customer (Edo Sushi web app on the Hong Chiang SaaS)
   └─ fills order → Save Order
        ├─ order goes to the Hong Chiang KDS (kitchen display)
        └─ apphong POSTs the order to the MIDHONG bridge service (server/mid.js, midhong.berkatselalu.com)
@@ -76,18 +83,23 @@ git's dubious-ownership refusal) + `sudo systemctl restart hongchiang
 hongchiang-mid`. The systemd units' WorkingDirectory/User must match that
 checkout and user.
 
-## UI design (apphong SPA, redesigned 2026-10-14 with the `design-taste-frontend` skill)
+## UI design (apphong SPA, redesigned 2026-10-14/15 with the `design-taste-frontend` skill)
 
-Idea: the Taiwanese paper 點餐單 (tick-sheet) is the interface — the menu is the sheet,
-the slip fills as you tick, the status screen is the finished slip with the table number
-huge in red. Direction "the split stage" (seed 1729440213): paper sheet column + sticky
-photo panel (`.stage > .sheet + .still`), single column under 900px. Tokens in
-`public/css/app.css` `:root` (ground white, surface #ebebea, ink, muted, accent red only
-on the primary button and the table number). Type: Besley 800 (display) + Libre
-Franklin (text), Noto Serif/Sans TC for CJK glyphs. House rules: no emoji, gradients,
+Idea (Edo Sushi, 2026-10-15): the stack of coloured plates, the kaiten bill counted by
+colour at the end, is the interface — every item is a plate of one colour (`meal.plate`,
+else the price tier from `store.plates`), the slip is "your stack" (drawn flat in the
+plates' real colours), the status screen is the stack beside the table number huge in red.
+Direction "the split stage" (seed 1729440213): paper sheet column + sticky photo panel
+(`.stage > .sheet + .still`), single column under 900px. Tokens in `public/css/app.css`
+`:root` (ground white, surface #ebebea, ink, muted, accent red only on the primary button
+and the table number; `--plate-*` for the plates). Type: Besley 800 (display) + Libre
+Franklin (text), Noto Serif/Sans JP for Japanese glyphs. House rules: no emoji, gradients,
 shadows at rest, hairlines, pill badges, eyebrow labels. Pictures in `public/img/` are
-open-collection finds (Wikimedia Commons, CC0/BY/BY-SA, credited in the home footer,
-`credits.json`); they show the world around the canteen, never its own dishes.
+open-collection finds (Hiroshige's Edo prints from the Art Institute of Chicago and the
+Met, CC0; a real plate stack from Commons, BY-SA; the "Moving Sushi" clip), credited in
+the home footer and `credits.json`; they show the world around the restaurant, never its
+own dishes. (The earlier Taiwanese 點餐單 idea and pictures, 2026-10-14, were a wrong reading
+of the brand and were removed; `credits.json` still lists them as history.)
 Deep links: `#/menu?mode=dinein&table=5` (QR on a table), `#/menu?mode=walkin`,
 `#/status?order_no=ORD…`. Design notes + critique: `.taste-skill/notes.md`.
 The midhong monitor (`public-mid/index.html`, single file, same tokens) follows the direction

@@ -224,8 +224,8 @@ createOrder({
   type: 'walkin',
   customer: { name: 'Walk-in Guest', phone: '0000000000' },
   meals: [
-    { meal_id: 62, meal_name: '滷肉飯 Braised Pork Rice', quantity: 2, price: 35909, category_id: 6, category_name: '每日特餐 Daily Special' },
-    { meal_id: 83, meal_name: 'Es Teh Manis Jumbo', quantity: 2, price: 9091, category_id: 7, category_name: '飲料 Drinks' },
+    { meal_id: 102, meal_name: '鮭 Sake, salmon nigiri', quantity: 2, price: 15000, category_id: 1, category_name: 'Nigiri' },
+    { meal_id: 161, meal_name: 'お茶 Ocha, hot green tea', quantity: 2, price: 5000, category_id: 6, category_name: 'Drinks' },
   ],
 });
 

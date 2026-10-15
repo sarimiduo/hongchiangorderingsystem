@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>midhong — orders on their way to the till</title>
-  <meta name="description" content="Live monitor of the Hong Chiang till bridge: every order from the ordering app, through the branch agent, into the ESB till, until the cashier settles it.">
+  <title>midhong — Edo Sushi orders on their way to the till</title>
+  <meta name="description" content="Live monitor of the Edo Sushi till bridge: every order from the ordering app, through the Hong Chiang kitchen display and the branch agent, into the ESB till, until the cashier settles it.">
   <meta name="theme-color" content="#ffffff">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2316140f'/%3E%3Crect x='14' y='14' width='36' height='36' fill='%23ffffff'/%3E%3Crect x='24' y='24' width='16' height='16' fill='%23c62128'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Besley:wght@800&family=Libre+Franklin:wght@400;600&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Besley:wght@800&family=Libre+Franklin:wght@400;600&family=Noto+Serif+JP:wght@900&display=swap" rel="stylesheet">
   <script>document.documentElement.classList.add('js')</script>
   <style>
     /* midhong monitor — the same order-sheet system as apphong (tokens kept), direction "the product performs". */
     :root {
       --bg: #ffffff; --surface: #ebebea; --surface-2: #dcdcda; --ink: #16140f; --muted: #4f4b45;
       --accent: #c62128; --accent-strong: #a3161d; --accent-ink: #ffffff;
-      --font-display: "Besley", "Noto Serif TC", Georgia, serif;
+      --font-display: "Besley", "Noto Serif JP", Georgia, serif;
       --font-text: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
       --step-small: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
       --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
@@ -173,7 +173,7 @@
 <body>
   <header class="wrap">
     <div class="topnav">
-      <a class="wordmark" href="/">midhong <span>the Hong Chiang till bridge</span></a>
+      <a class="wordmark" href="/">midhong <span>the Edo Sushi till bridge</span></a>
       <nav aria-label="Pages"><a id="app-link" href="/">Ordering app</a><a href="/api/health">Health</a><a href="/api/bridge/overview">Overview</a></nav>
     </div>
   </header>
@@ -182,7 +182,7 @@
     <section class="wrap hero" aria-labelledby="h1">
       <div>
         <h1 id="h1" data-rise style="--i:0">On the way<br>to the till</h1>
-        <p class="lead" data-rise style="--i:1">Every ticket leaves the ordering app, is picked up by the branch agent, opens its table on the ESB till and waits there until the cashier settles it.</p>
+        <p class="lead" data-rise style="--i:1">Every Edo Sushi ticket leaves the ordering app through the Hong Chiang kitchen display, is picked up by the branch agent, opens its table on the ESB till and waits there until the cashier settles it.</p>
       </div>
       <p class="act" data-rise style="--i:2"><a class="button" id="app-button" href="/">Open the ordering app</a><button class="link" id="pause" type="button">Pause the updates</button></p>
       <div class="stage" data-rise style="--i:3">
@@ -198,12 +198,12 @@
 
     <section class="wrap world" aria-label="The world the orders travel through">
       <div class="grid">
-        <figure data-reveal style="--i:0"><video autoplay muted loop playsinline preload="metadata" poster="/img/night-market-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/night-market.webm" type="video/webm"></video></figure>
-        <figure data-reveal style="--i:1"><img src="/img/delivery-robot.jpg" width="1200" height="1243" alt="A yellow delivery robot carrying two trays of food between restaurant tables" loading="lazy" decoding="async"></figure>
-        <figure data-reveal style="--i:2"><img src="/img/yongkang-noodle-shop.jpg" width="1600" height="1092" alt="A noodle shop front on Yongkang Street, Taipei, on a wet afternoon" loading="lazy" decoding="async" style="object-position:20% 50%"></figure>
-        <figure data-reveal style="--i:3"><img src="/img/noodle-shop-sign.jpg" width="1200" height="1800" alt="Lit shop signs with red brush characters over a street at dusk, Changhua, Taiwan" loading="lazy" decoding="async"></figure>
+        <figure data-reveal style="--i:0"><video autoplay muted loop playsinline preload="metadata" poster="/img/sushi-train-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/sushi-train.webm" type="video/webm"></video></figure>
+        <figure data-reveal style="--i:1"><img src="/img/plate-stack.jpg" width="1200" height="1800" alt="A tall stack of empty orange, black and white plates beside a sushi conveyor belt" loading="lazy" decoding="async"></figure>
+        <figure data-reveal style="--i:2"><img src="/img/edo-nihonbashi.jpg" width="1200" height="1779" alt="Woodblock print of a crowded street of shops in Edo, with parasols, by Hiroshige" loading="lazy" decoding="async" style="object-position:50% 40%"></figure>
+        <figure data-reveal style="--i:3"><img src="/img/edo-bonito.jpg" width="1600" height="1093" alt="Woodblock print of a blue bonito beside sprigs of saxifrage, by Hiroshige" loading="lazy" decoding="async" style="object-position:40% 60%"></figure>
       </div>
-      <p class="cap">Pictures:<a class="link" href="https://commons.wikimedia.org/wiki/File:Hualien-taiwan-nightmarket2011.ogv">“Hualien night market, 2011”</a> by Nesnad, CC BY-SA 3.0; <a class="link" href="https://commons.wikimedia.org/w/index.php?curid=151258187">“Delivery robot at family restaurant in Chiba”</a> by Syced, CC0; <a class="link" href="https://commons.wikimedia.org/wiki/File:TW_%E5%8F%B0%E7%81%A3_Taiwan_%E5%8F%B0%E5%8C%97_Taipei_%E6%B0%B8%E5%BA%B7%E8%A1%97_10_YongKang_Street_%E5%8F%B0%E7%81%A3%E4%B8%80%E5%93%81_noodle_shop_March_2024_R12S_03.jpg">“Yongkang Street noodle shop, Taipei, 2024”</a>, CC0; <a class="link" href="https://commons.wikimedia.org/w/index.php?curid=29127725">“Shop sign of the Cat Mouse Noodles, Changhua”</a> by Mk2010, CC BY-SA 3.0. All via Wikimedia Commons.</p>
+      <p class="cap">Pictures: <a class="link" href="https://commons.wikimedia.org/wiki/File:Moving_Sushi_P1130190.ogv">“Moving Sushi”</a> (2012), CC BY-SA 3.0, via Wikimedia Commons; <a class="link" href="https://commons.wikimedia.org/w/index.php?curid=179146020">“A stack of empty sushi plates at a conveyor belt sushi restaurant in Taiwan”</a>, CC BY-SA 4.0, via Wikimedia Commons; <a class="link" href="https://www.artic.edu/artworks/34241">“View of Nihonbashi Tori-itchome”</a> (1858) and <a class="link" href="https://www.artic.edu/artworks/26727">“Bonito and saxifrage”</a> by Utagawa Hiroshige, the Art Institute of Chicago, CC0.</p>
     </section>
 
     <section class="stats" aria-labelledby="stats-h">
@@ -225,9 +225,9 @@
   </main>
 
   <footer class="foot">
-    <span>midhong, the Hong Chiang till bridge</span>
+    <span>midhong, the Edo Sushi till bridge</span>
     <nav aria-label="Footer"><a href="/api/health">Health</a><a href="/api/bridge/overview">Overview</a><a id="app-link-2" href="/">Ordering app</a></nav>
-    <span class="r"><span id="year">2026</span>, Hong Chiang</span>
+    <span class="r"><span id="year">2026</span>, Edo Sushi</span>
   </footer>
 
   <script>
@@ -263,7 +263,7 @@
           <span>${esc(last ? last.t.slice(11, 16) : '')} <b>${esc(last ? (last.detail || LABEL[last.stage] || last.stage) : '')}</b></span>
           <span>${c.salesNum ? 'Sale <b>' + esc(c.salesNum) + '</b>' : ''}${c.billNum ? ', bill <b>' + esc(c.billNum) + '</b>' : ''}</span>
         </div>
-        ${c.stage === 'settled' ? `<div class="stamp">Paid 已付</div>` : ''}
+        ${c.stage === 'settled' ? `<div class="stamp">Paid 済</div>` : ''}
         ${ended ? `<p class="t-foot"><b>${LABEL[c.stage]}</b>${c.error ? ': ' + esc(c.error) : ''}</p>` : ''}`;
     }
 
