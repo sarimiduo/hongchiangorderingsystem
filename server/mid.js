@@ -23,6 +23,9 @@ const HOST = process.env.HOST || '127.0.0.1';
 const APP_URL = process.env.APP_URL.replace(/\/+$/, '');
 const BRIDGE_TOKEN = process.env.BRIDGE_TOKEN;
 const MONITOR_HTML = path.join(__dirname, '..', 'public-mid', 'index.html');
+// the monitor page reuses apphong's credited pictures (public/img) under /img/*
+const IMG_DIR = path.join(__dirname, '..', 'public', 'img');
+const IMG_MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webm': 'video/webm', '.json': 'application/json; charset=utf-8' };
 
 /* ------------------------------------------------ settlement callback → apphong */
 const CALLBACK_DELAYS_MS = [2000, 4000, 8000, 16000, 32000, 60000];
@@ -167,6 +170,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       return send(res, 200, fs.readFileSync(MONITOR_HTML, 'utf8'), 'text/html; charset=utf-8');
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/img/')) {
+      const file = path.normalize(path.join(IMG_DIR, url.pathname.slice('/img/'.length)));
+      const type = IMG_MIME[path.extname(file)];
+      if (!file.startsWith(IMG_DIR) || !type || !fs.existsSync(file)) return send(res, 404, 'not found', 'text/plain');
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'public, max-age=86400' });
+      return fs.createReadStream(file).pipe(res);
     }
     return send(res, 404, 'not found', 'text/plain');
   } catch (e) {

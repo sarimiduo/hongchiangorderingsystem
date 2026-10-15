@@ -88,7 +88,7 @@ test('midhong: menu sync is served on /api/bridge/menu; monitor page is served o
   const page = await fetch(`${T.MID}/`);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-type'), /text\/html/);
-  assert.match(await page.text(), /Bridge Monitor/);
+  assert.match(await page.text(), /midhong/);
 });
 
 test('midhong: callback to a dead apphong is non-blocking, counted, and marked not ok', async () => {

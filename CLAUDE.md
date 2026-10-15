@@ -86,6 +86,10 @@ open-collection finds (Wikimedia Commons, CC0/BY/BY-SA, credited in the home foo
 `credits.json`); they show the world around the canteen, never its own dishes.
 Deep links: `#/menu?mode=dinein&table=5` (QR on a table), `#/menu?mode=walkin`,
 `#/status?order_no=ORD…`. Design notes + critique: `.taste-skill/notes.md`.
+The midhong monitor (`public-mid/index.html`, single file, same tokens) follows the direction
+"the product performs": the live ticket on the rail, an orders-by-hour chart, stage tabs +
+banded rows; `mid.js` serves `/img/*` from `public/img` so it reuses the credited pictures.
+`.taste-skill/direction.json` holds only the last draw (the monitor's); seeds are in the notes.
 Gate (Node 20 on the VPS): `node --experimental-websocket <skill>/scripts/inspect.mjs
 http://127.0.0.1:3005/ --out .taste-skill/inspect-home` with
 `CHROME_PATH=~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` and

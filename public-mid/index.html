@@ -2,65 +2,354 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>midhong — Bridge Monitor</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔁</text></svg>">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>midhong — orders on their way to the till</title>
+  <meta name="description" content="Live monitor of the Hong Chiang till bridge: every order from the ordering app, through the branch agent, into the ESB till, until the cashier settles it.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2316140f'/%3E%3Crect x='14' y='14' width='36' height='36' fill='%23ffffff'/%3E%3Crect x='24' y='24' width='16' height='16' fill='%23c62128'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Besley:wght@800&family=Libre+Franklin:wght@400;600&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
+  <script>document.documentElement.classList.add('js')</script>
   <style>
-    :root { --orange:#f05a24; --ink:#1f2024; --ink2:#5c5f66; --ink3:#9a9da3; --bg:#f4f4f5; --card:#fff; --line:#ececee; --green:#18a553; --red:#d7263d; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); padding:16px; }
-    .wrap { max-width:760px; margin:0 auto; display:grid; gap:12px; }
-    h1 { font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px; }
-    .card { background:var(--card); border-radius:14px; padding:14px 16px; box-shadow:0 1px 4px rgba(20,20,30,.07); }
-    .muted { color:var(--ink3); font-size:13px; }
-    .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-    .badge { font-size:11.5px; font-weight:800; border-radius:999px; padding:4px 10px; letter-spacing:.3px; white-space:nowrap; }
-    .PREPARING { background:#fdf1d7; color:#b07a0a; } .READY { background:#def3e5; color:#15823f; }
-    .PAID { background:#def3e5; color:#15823f; } .SERVED { background:#e7e7ea; color:#5c5f66; } .ERR { background:#fde2e6; color:var(--red); }
-    .ev { font-size:11.5px; color:var(--ink2); margin-top:6px; border-top:1px dashed var(--line); padding-top:6px; }
-    code { font-family:ui-monospace, Menlo, monospace; font-size:12px; }
+    /* midhong monitor — the same order-sheet system as apphong (tokens kept), direction "the product performs". */
+    :root {
+      --bg: #ffffff; --surface: #ebebea; --surface-2: #dcdcda; --ink: #16140f; --muted: #4f4b45;
+      --accent: #c62128; --accent-strong: #a3161d; --accent-ink: #ffffff;
+      --font-display: "Besley", "Noto Serif TC", Georgia, serif;
+      --font-text: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --step-small: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
+      --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+      --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+      --step-head: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+      --step-display: clamp(2.75rem, 1.5rem + 4.6vw, 5.5rem);
+      --margin: clamp(1.25rem, 2.6vw, 2.5rem); --gap: 12px; --control: 48px;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+      --t-press: 140ms; --t-hover: 180ms; --t-ui: 240ms; --t-reveal: 800ms;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { overflow-x: clip; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-text); font-size: var(--step-body); line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
+    ul, ol { padding: 0; list-style: none; }
+    img, video { display: block; max-width: 100%; height: auto; background: var(--surface); }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+    a { color: inherit; }
+    ::selection { background: var(--accent); color: var(--accent-ink); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    h1, h2, .display, .num { font-family: var(--font-display); font-weight: 800; text-wrap: balance; hyphens: none; }
+    .muted { color: var(--muted); }
+    .nums { font-variant-numeric: tabular-nums; }
+    .small { font-size: var(--step-small); line-height: 1.45; }
+    p { max-width: 62ch; text-wrap: pretty; }
+    .link { text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 0.07em; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 1.4rem; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 600; white-space: nowrap; transition: transform var(--t-press) var(--ease-out), background-color var(--t-hover) ease; }
+    .button:active { transform: scale(0.97); }
+    @media (hover: hover) and (pointer: fine) { .button:hover { background: var(--accent-strong); } }
+
+    .wrap { padding-inline: var(--margin); }
+    .topnav { display: grid; grid-template-columns: 1fr auto; align-items: center; min-height: 64px; gap: 16px; }
+    .wordmark { font-family: var(--font-display); font-weight: 800; font-size: var(--step-lead); letter-spacing: -0.015em; text-decoration: none; }
+    .wordmark span { font-family: var(--font-text); font-weight: 400; font-size: var(--step-body); letter-spacing: 0; margin-left: 0.6em; color: var(--muted); }
+    .topnav nav { display: flex; gap: 20px; }
+    .topnav nav a { text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 0.07em; min-height: 44px; display: inline-flex; align-items: center; }
+    @media (max-width: 599px) { .topnav nav a:not(:first-child) { display: none; } .wordmark span { display: none; } }
+
+    /* hero: headline upper-left, the working fragment fills the rest of the first screen */
+    .hero { padding-top: clamp(24px, 4svh, 48px); display: grid; gap: 28px; }
+    .hero h1 { font-size: var(--step-display); line-height: 0.95; letter-spacing: -0.035em; max-width: 22ch; }
+    .hero .lead { font-size: var(--step-lead); line-height: 1.35; max-width: 40ch; margin-top: 20px; }
+    .hero .act { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+    .stage { background: var(--surface); padding: clamp(20px, 3vw, 40px); display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .hero { grid-template-columns: 7fr 5fr; align-items: end; } .hero .stage { grid-column: 1 / -1; grid-template-columns: 7fr 5fr; } }
+
+    /* the ticket on the rail (a real interface fragment) */
+    [data-ui].ticket { background: var(--bg); padding: 24px 28px 28px; font-size: 16px; line-height: 1.4; min-height: 320px; }
+    [data-ui].ticket .t-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+    [data-ui].ticket .t-num { font-family: var(--font-display); font-weight: 800; font-size: 64px; line-height: 0.85; color: var(--accent); }
+    [data-ui].ticket .t-meta { color: var(--muted); font-size: 15px; line-height: 1.3; text-align: right; }
+    [data-ui].ticket .t-meta b { display: block; color: var(--ink); font-weight: 600; font-size: 16px; }
+    [data-ui].ticket .track { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 18px; }
+    @media (max-width: 599px) {
+      [data-ui].ticket { padding: 20px; }
+      [data-ui].ticket .t-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+      [data-ui].ticket .t-meta { text-align: left; }
+      [data-ui].ticket .track { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 6px; }
+      [data-ui].ticket .t-num { font-size: 52px; }
+    }
+    .stage > * { min-width: 0; }
+    [data-ui].ticket .track li { display: grid; gap: 8px; font-size: 13px; line-height: 1.25; color: var(--muted); }
+    [data-ui].ticket .track li::before { content: ""; display: block; height: 10px; background: var(--surface-2); }
+    [data-ui].ticket .track li.done { color: var(--ink); } [data-ui].ticket .track li.done::before { background: var(--ink); }
+    [data-ui].ticket .track li.now { color: var(--ink); font-weight: 600; } [data-ui].ticket .track li.now::before { background: var(--accent); }
+    [data-ui].ticket .t-foot { margin-top: 18px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 15px; color: var(--muted); }
+    [data-ui].ticket .t-foot b { color: var(--ink); font-weight: 600; }
+    [data-ui].ticket .stamp { display: inline-block; transform: rotate(-7deg); background: var(--accent); color: var(--accent-ink); padding: 8px 12px; font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; margin-top: 10px; }
+    [data-ui].ticket .empty { color: var(--muted); padding: 24px 0; }
+    .panel { background: var(--bg); padding: 24px 28px; display: grid; gap: 18px; align-content: start; }
+    .panel p { max-width: none; }
+    .panel .k { color: var(--muted); }
+    .panel .v { font-weight: 600; }
+    .panel .big { font-family: var(--font-display); font-weight: 800; font-size: var(--step-head); line-height: 1; letter-spacing: -0.02em; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .panel .big span:last-child { font-family: var(--font-text); font-weight: 400; font-size: var(--step-body); letter-spacing: 0; color: var(--muted); }
+    .panel .live::before { content: ""; display: inline-block; width: 12px; height: 12px; background: var(--surface-2); margin-right: 8px; }
+    .panel .live.on::before { background: var(--accent); }
+
+    /* pictures of the world the orders travel through */
+    .world { margin-top: clamp(72px, 10vw, 140px); }
+    .world .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--gap); }
+    .world figure { aspect-ratio: 4 / 5; overflow: hidden; background: var(--surface); }
+    .world img, .world video { width: 100%; height: 100%; object-fit: cover; }
+    .world .cap { margin-top: 14px; max-width: 56ch; font-size: var(--step-body); }
+    @media (min-width: 900px) { .world .grid { grid-template-columns: repeat(4, 1fr); } }
+
+    /* stats: bars standing on the edge of a full-bleed field */
+    .stats { margin-top: clamp(72px, 10vw, 140px); background: var(--surface); min-height: 90svh; display: grid; grid-template-rows: auto 1fr auto; padding-top: clamp(32px, 5vw, 64px); }
+    .stats .claim { padding-inline: var(--margin); display: grid; gap: 8px; align-content: start; }
+    .stats .figure { font-size: clamp(5rem, 14vw, 13rem); line-height: 0.85; letter-spacing: -0.04em; }
+    .stats h2 { font-size: var(--step-lead); line-height: 1.2; font-family: var(--font-text); font-weight: 600; max-width: 30ch; }
+    [data-ui].bars { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 8px; align-items: end; align-self: end; height: 62vh; }
+    [data-ui].bars .bar { position: relative; background: var(--surface-2); min-height: 4px; transition: height 700ms var(--ease-out); }
+    [data-ui].bars .bar.now { background: var(--accent); }
+    [data-ui].bars .bar .v { position: absolute; left: 0; right: 0; bottom: 100%; padding-bottom: 8px; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 2vw, 30px); font-variant-numeric: tabular-nums; }
+    [data-ui].bars .bar .h { position: absolute; left: 0; right: 0; top: 100%; padding-top: 8px; text-align: center; font-size: 13px; color: var(--muted); }
+    .stats .axis { height: 40px; }
+    @media (max-width: 899px) {
+      [data-ui].bars { grid-template-columns: 1fr; height: auto; gap: 6px; align-items: stretch; padding: 32px calc(var(--margin) + 3.2em) 24px calc(var(--margin) + 3.6em); }
+      [data-ui].bars .bar { height: 28px !important; width: var(--w, 4px); min-width: 4px; transition: width 700ms var(--ease-out); }
+      [data-ui].bars .bar .v { left: auto; right: -3.2em; bottom: auto; top: 50%; transform: translateY(-50%); padding: 0; font-size: 17px; text-align: left; }
+      [data-ui].bars .bar .h { left: auto; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); padding: 0; white-space: nowrap; }
+      .stats .axis { display: none; }
+    }
+
+    /* the rail: stage tabs pinned, orders as banded rows */
+    .rail { margin-top: clamp(72px, 10vw, 140px); }
+    .rail h2 { font-size: clamp(2.25rem, 4vw, 3.75rem); line-height: 1; letter-spacing: -0.025em; max-width: 20ch; }
+    .rail h2 span { display: block; color: var(--muted); }
+    .rail .body { display: grid; gap: var(--gap); margin-top: 56px; grid-template-columns: 1fr; }
+    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .tab { min-height: 64px; padding: 10px 14px; background: var(--surface); display: grid; align-content: center; gap: 2px; transition: transform var(--t-press) var(--ease-out), background-color var(--t-hover) ease, color var(--t-hover) ease; }
+    .tab b { font-weight: 600; font-size: 16px; }
+    .tab span { font-size: var(--step-small); color: var(--muted); }
+    .tab.on { background: var(--ink); color: var(--bg); } .tab.on span { color: var(--bg); }
+    .tab:active { transform: scale(0.97); }
+    @media (hover: hover) and (pointer: fine) { .tab:not(.on):hover { background: var(--surface-2); } }
+    .bands { display: grid; gap: 4px; }
+    .band { display: grid; grid-template-columns: 1fr; gap: 6px 16px; padding: 16px; background: var(--surface); min-height: 76px; }
+    .band:nth-child(even) { background: var(--bg); }
+    .band .time { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .band .who b { font-family: var(--font-display); font-weight: 800; font-size: var(--step-lead); display: block; line-height: 1.1; }
+    .band .who span, .band .what { color: var(--muted); }
+    .band .st { font-weight: 600; }
+    .band .st.set::before, .band .st.now::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; background: var(--ink); }
+    .band .st.now::before { background: var(--accent); }
+    .band .more { color: var(--muted); grid-column: 1 / -1; }
+    .bands .none { padding: 24px 16px; color: var(--muted); }
+    @media (min-width: 900px) {
+      .rail .body { grid-template-columns: 150px 1fr; align-items: start; }
+      .tabs { grid-template-columns: 1fr; position: sticky; top: 12px; }
+      .band { grid-template-columns: 88px 2fr 2fr 1.4fr; align-items: center; padding: 14px 20px; }
+      .band .more { grid-column: 2 / -1; }
+    }
+
+    /* a single quiet line */
+    .foot { margin-top: 30svh; padding: 0 var(--margin) 30px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: baseline; font-size: var(--step-small); color: var(--muted); }
+    .foot nav { display: flex; gap: 24px; } .foot nav a { color: var(--ink); text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 0.07em; }
+    .foot .r { text-align: right; }
+    @media (max-width: 599px) { .foot { grid-template-columns: 1fr; gap: 8px; margin-top: 20svh; padding-bottom: 24px; } .foot .r { text-align: left; } }
+
+    /* motion: content stays visible without JavaScript */
+    @media (prefers-reduced-motion: no-preference) {
+      .js [data-rise] { opacity: 0; transform: translateY(18px); animation: rise var(--t-reveal) var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
+      .js [data-reveal] { opacity: 0; transform: translateY(20px); transition: opacity 600ms var(--ease-out), transform 800ms var(--ease-out); transition-delay: calc(var(--i, 0) * 60ms); }
+      .js [data-reveal].is-in { opacity: 1; transform: none; }
+      .js .ticket .track li::before { transition: background-color 500ms ease; }
+    }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .world video { display: none; } [data-ui].ticket .stamp { transform: none; } }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🔁 Bridge Monitor <span class="muted">midhong · apphong → ESB POS</span></h1>
-    <div id="root" class="card muted">Loading…</div>
-  </div>
-  <script>
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    const fmt = n => 'Rp' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const LABEL = { queued:['QUEUED','PREPARING'], picked_up:['AGENT','PREPARING'], table_opened:['OPEN 🟡','PREPARING'],
-      order_saved:['OCCUPIED 🔴','PREPARING'], waiting_cashier:['CASHIER…','READY'], settled:['FINISHED','PAID'],
-      voided:['VOIDED','SERVED'], error:['ERROR','ERR'] };
-    async function paint() {
-      const root = document.getElementById('root');
-      let ov;
-      try { ov = await (await fetch('/api/bridge/overview')).json(); }
-      catch (e) { root.innerHTML = '⚠️ midhong API unreachable'; return; }
-      const cb = c => !c.callback ? '' : c.callback.ok
-        ? `<br>↩︎ apphong told: ✅ (attempt ${c.callback.attempts})`
-        : `<br>↩︎ apphong told: ❌ after ${c.callback.attempts} attempt(s) — ${esc(c.callback.last_error || '')} (re-sent every 60 s)`;
-      root.className = 'wrap'; root.style.padding = '0';
-      root.innerHTML = `
-        <div class="card"><b>Agent:</b> ${ov.agent_live ? '🟢 live agent connected' : ov.simulator ? '🟠 simulator (no live agent)' : '⚪ offline'}
-          ${ov.agent_info && ov.agent_info.info ? ` <span class="muted">${esc(ov.agent_info.info)}</span>` : ''}
-          <div class="muted">${ov.esb_menu ? `Menu synced from ESB POS: ${ov.esb_menu.meals} items (${esc(ov.esb_menu.synced_at.slice(0,19).replace('T',' '))})` : 'No ESB menu sync yet'}</div>
+  <header class="wrap">
+    <div class="topnav">
+      <a class="wordmark" href="/">midhong <span>the Hong Chiang till bridge</span></a>
+      <nav aria-label="Pages"><a id="app-link" href="/">Ordering app</a><a href="/api/health">Health</a><a href="/api/bridge/overview">Overview</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero" aria-labelledby="h1">
+      <div>
+        <h1 id="h1" data-rise style="--i:0">On the way<br>to the till</h1>
+        <p class="lead" data-rise style="--i:1">Every ticket leaves the ordering app, is picked up by the branch agent, opens its table on the ESB till and waits there until the cashier settles it.</p>
+      </div>
+      <p class="act" data-rise style="--i:2"><a class="button" id="app-button" href="/">Open the ordering app</a><button class="link" id="pause" type="button">Pause the updates</button></p>
+      <div class="stage" data-rise style="--i:3">
+        <div class="ticket" data-ui id="ticket"><p class="empty">Waiting for the first order…</p></div>
+        <div class="panel" id="panel">
+          <p class="big nums"><span id="open-count">0</span><span>open on the rail right now</span></p>
+          <p><span class="k">Branch agent: </span><span class="v live" id="agent">asking the bridge…</span></p>
+          <p><span class="k">Menu: </span><span class="v" id="menu">…</span></p>
+          <p><span class="k">Updated </span><span class="v" id="updated">never</span></p>
         </div>
-        ${ov.commands.length === 0 ? '<p class="muted">No orders yet.</p>' : ''}
-        ${ov.commands.map(c => `
-          <div class="card">
-            <div class="row"><b>${esc(c.order_no)}</b>
-              <span class="badge ${LABEL[c.stage] ? LABEL[c.stage][1] : 'SERVED'}">${LABEL[c.stage] ? LABEL[c.stage][0] : esc(c.stage)}</span></div>
-            <div class="muted" style="margin-top:4px">
-              ${c.mode === 'dinein' ? 'Dine In · Table ' + esc(c.table_name || '?') : 'Takeout'} · ${c.items} item(s) · ${fmt(c.total)}
-              ${c.salesNum ? `<br>ESB salesNum <code>${esc(c.salesNum)}</code>` : ''}
-              ${c.billNum ? ` · bill <code>${esc(c.billNum)}</code>` : ''}
-              ${c.payment_method ? ` · paid (${esc(c.payment_method)})` : ''}${cb(c)}
-            </div>
-            <div class="ev">${c.events.slice(-3).map(e => `${esc(e.t.slice(11))} — ${esc(e.detail || e.stage)}`).join('<br>')}</div>
-          </div>`).join('')}`;
+      </div>
+    </section>
+
+    <section class="wrap world" aria-label="The world the orders travel through">
+      <div class="grid">
+        <figure data-reveal style="--i:0"><video autoplay muted loop playsinline preload="metadata" poster="/img/night-market-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/night-market.webm" type="video/webm"></video></figure>
+        <figure data-reveal style="--i:1"><img src="/img/delivery-robot.jpg" width="1200" height="1243" alt="A yellow delivery robot carrying two trays of food between restaurant tables" loading="lazy" decoding="async"></figure>
+        <figure data-reveal style="--i:2"><img src="/img/yongkang-noodle-shop.jpg" width="1600" height="1092" alt="A noodle shop front on Yongkang Street, Taipei, on a wet afternoon" loading="lazy" decoding="async" style="object-position:20% 50%"></figure>
+        <figure data-reveal style="--i:3"><img src="/img/noodle-shop-sign.jpg" width="1200" height="1800" alt="Lit shop signs with red brush characters over a street at dusk, Changhua, Taiwan" loading="lazy" decoding="async"></figure>
+      </div>
+      <p class="cap">Pictures:<a class="link" href="https://commons.wikimedia.org/wiki/File:Hualien-taiwan-nightmarket2011.ogv">“Hualien night market, 2011”</a> by Nesnad, CC BY-SA 3.0; <a class="link" href="https://commons.wikimedia.org/w/index.php?curid=151258187">“Delivery robot at family restaurant in Chiba”</a> by Syced, CC0; <a class="link" href="https://commons.wikimedia.org/wiki/File:TW_%E5%8F%B0%E7%81%A3_Taiwan_%E5%8F%B0%E5%8C%97_Taipei_%E6%B0%B8%E5%BA%B7%E8%A1%97_10_YongKang_Street_%E5%8F%B0%E7%81%A3%E4%B8%80%E5%93%81_noodle_shop_March_2024_R12S_03.jpg">“Yongkang Street noodle shop, Taipei, 2024”</a>, CC0; <a class="link" href="https://commons.wikimedia.org/w/index.php?curid=29127725">“Shop sign of the Cat Mouse Noodles, Changhua”</a> by Mk2010, CC BY-SA 3.0. All via Wikimedia Commons.</p>
+    </section>
+
+    <section class="stats" aria-labelledby="stats-h">
+      <div class="claim">
+        <p class="figure num nums" id="today-count" data-reveal>0</p>
+        <h2 id="stats-h" data-reveal style="--i:1">orders through the bridge today, by hour of the business day</h2>
+      </div>
+      <div class="bars" data-ui id="bars"></div>
+      <div class="axis"></div>
+    </section>
+
+    <section class="wrap rail" aria-labelledby="rail-h">
+      <h2 id="rail-h"><span>On the rail</span>every order so far</h2>
+      <div class="body">
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <div class="bands" id="bands"><p class="none">Asking the bridge…</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>midhong, the Hong Chiang till bridge</span>
+    <nav aria-label="Footer"><a href="/api/health">Health</a><a href="/api/bridge/overview">Overview</a><a id="app-link-2" href="/">Ordering app</a></nav>
+    <span class="r"><span id="year">2026</span>, Hong Chiang</span>
+  </footer>
+
+  <script>
+    'use strict';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = n => 'Rp' + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const STAGES = [['queued', 'Queued'], ['picked_up', 'With the agent'], ['table_opened', 'Table opened'], ['order_saved', 'Occupied'], ['waiting_cashier', 'At the cashier'], ['settled', 'Settled']];
+    const LABEL = Object.fromEntries(STAGES.concat([['voided', 'Voided'], ['error', 'Error']]));
+    const TABS = [['all', 'Everything'], ['queued', 'Queued'], ['picked_up', 'With the agent'], ['table_opened', 'Table opened'], ['order_saved', 'Occupied'], ['waiting_cashier', 'At the cashier'], ['settled', 'Settled'], ['ended', 'Voided, errors']];
+    const OPEN = new Set(['queued', 'picked_up', 'table_opened', 'order_saved', 'waiting_cashier']);
+    const CALM = matchMedia('(prefers-reduced-motion: reduce)');
+    const S = { ov: null, tab: 'all', paused: false, lastOk: 0, painted: false };
+
+    // the ordering app lives on the sibling host (midhong.* → apphong.*); locally, on the app port
+    const appUrl = location.hostname.startsWith('midhong') ? location.origin.replace('midhong', 'apphong') : `${location.protocol}//${location.hostname}:${location.port === '3105' ? '3005' : '3000'}`;
+    for (const id of ['app-link', 'app-button', 'app-link-2']) document.getElementById(id).href = appUrl;
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const hhmm = ms => { const d = new Date(ms); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); };
+    const isToday = ms => new Date(ms).toDateString() === new Date().toDateString();
+    const where = c => c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout';
+
+    function ticketHTML(c) {
+      if (!c) return '<p class="empty">Nothing on the rail yet. The first order from the app will appear here.</p>';
+      const at = STAGES.findIndex(s => s[0] === c.stage);
+      const ended = c.stage === 'voided' || c.stage === 'error';
+      const last = c.events[c.events.length - 1];
+      return `
+        <div class="t-head"><span class="t-num nums">${esc(c.mode === 'dinein' ? (c.table_name || '?') : String(c.order_no).slice(-4))}</span>
+          <span class="t-meta"><b>${esc(c.order_no)}</b>${where(c)}<br>${c.items} ${c.items === 1 ? 'dish' : 'dishes'}, ${fmt(c.total)}</span></div>
+        <ol class="track">${STAGES.map((s, i) => `<li class="${at > i || ended ? 'done' : ''}${at === i ? ' now' : ''}">${s[1]}</li>`).join('')}</ol>
+        <div class="t-foot">
+          <span>${esc(last ? last.t.slice(11, 16) : '')} <b>${esc(last ? (last.detail || LABEL[last.stage] || last.stage) : '')}</b></span>
+          <span>${c.salesNum ? 'Sale <b>' + esc(c.salesNum) + '</b>' : ''}${c.billNum ? ', bill <b>' + esc(c.billNum) + '</b>' : ''}</span>
+        </div>
+        ${c.stage === 'settled' ? `<div class="stamp">Paid 已付</div>` : ''}
+        ${ended ? `<p class="t-foot"><b>${LABEL[c.stage]}</b>${c.error ? ': ' + esc(c.error) : ''}</p>` : ''}`;
     }
-    paint(); setInterval(paint, 3000);
+
+    function bandHTML(c, i, first) {
+      const cb = !c.callback ? '' : c.callback.ok ? `The app was told, attempt ${c.callback.attempts}.` : `The app has not confirmed after ${c.callback.attempts} attempt${c.callback.attempts === 1 ? '' : 's'}${c.callback.last_error ? ' (' + esc(c.callback.last_error) + ')' : ''}, re-sent every 60 s.`;
+      const more = [c.salesNum ? 'Sale ' + esc(c.salesNum) : '', c.billNum ? 'bill ' + esc(c.billNum) : '', c.payment_method ? 'paid ' + esc(c.payment_method) : '', cb].filter(Boolean).join(', ');
+      const now = OPEN.has(c.stage), set = c.stage === 'settled';
+      return `<div class="band" ${first ? `data-reveal style="--i:${Math.min(i, 8)}"` : ''}>
+        <span class="time">${hhmm(c.created)}</span>
+        <span class="who"><b>${esc(c.order_no)}</b><span>${where(c)}</span></span>
+        <span class="what">${c.items} ${c.items === 1 ? 'dish' : 'dishes'}, ${fmt(c.total)}${c.simulated ? ', simulated' : ''}</span>
+        <span class="st ${set ? 'set' : now ? 'now' : ''}">${LABEL[c.stage] || esc(c.stage)}</span>
+        ${more ? `<span class="more">${more}</span>` : ''}
+      </div>`;
+    }
+
+    function paintBars(cmds) {
+      // the business day 10:00–21:00, plus one bar either side for anything outside it
+      const buckets = [{ label: 'before 10', test: h => h < 10 }]
+        .concat(Array.from({ length: 12 }, (_, i) => ({ label: (10 + i) + ':00', test: h => h === 10 + i })))
+        .concat([{ label: 'after 22', test: h => h >= 22 }]);
+      const today = cmds.filter(c => isToday(c.created));
+      const counts = buckets.map(b => today.filter(c => b.test(new Date(c.created).getHours())).length);
+      const max = Math.max(1, ...counts), nowH = new Date().getHours();
+      const nowI = buckets.findIndex(b => b.test(nowH));
+      const maxI = counts.indexOf(Math.max(...counts)), firstI = counts.findIndex(v => v > 0);
+      const show = new Set([maxI, firstI, nowI].filter(i => i >= 0 && counts[i] > 0));
+      document.getElementById('bars').innerHTML = buckets.map((b, i) => {
+        const pct = Math.round(counts[i] / max * 100);
+        return `<div class="bar ${i === nowI ? 'now' : ''}" style="height:${Math.max(4, pct * 0.58)}vh;--w:${pct}%" title="${counts[i]} orders, ${b.label}">${show.has(i) ? `<span class="v">${counts[i]}</span>` : ''}<span class="h">${b.label}</span></div>`;
+      }).join('');
+      document.getElementById('today-count').textContent = today.length;
+    }
+
+    function paintTabs(cmds) {
+      const count = t => t === 'all' ? cmds.length : t === 'ended' ? cmds.filter(c => c.stage === 'voided' || c.stage === 'error').length : cmds.filter(c => c.stage === t).length;
+      const box = document.getElementById('tabs');
+      const first = !box.dataset.painted; box.dataset.painted = '1';
+      box.innerHTML = TABS.map(([id, name], i) => `<button class="tab ${S.tab === id ? 'on' : ''}" role="tab" aria-selected="${S.tab === id}" data-tab="${id}" ${first ? `data-reveal style="--i:${i}"` : ''}><b>${name}</b><span>${count(id)} ${count(id) === 1 ? 'order' : 'orders'}</span></button>`).join('');
+      if (first) reveal(box);
+    }
+
+    function paintBands(cmds, first) {
+      const list = cmds.filter(c => S.tab === 'all' ? true : S.tab === 'ended' ? (c.stage === 'voided' || c.stage === 'error') : c.stage === S.tab);
+      const box = document.getElementById('bands');
+      box.innerHTML = list.length ? list.map((c, i) => bandHTML(c, i, first)).join('') : '<p class="none">No orders here right now.</p>';
+      if (first) reveal(box);
+    }
+
+    function reveal(root) {
+      const els = [...root.querySelectorAll('[data-reveal]:not(.is-in)')];
+      if (!els.length) return;
+      const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+      els.forEach(el => io.observe(el));
+    }
+
+    function render() {
+      const ov = S.ov; if (!ov) return;
+      const cmds = ov.commands || [];
+      const first = !S.painted; S.painted = true;
+      const head = cmds.find(c => OPEN.has(c.stage)) || cmds[0];
+      document.getElementById('ticket').innerHTML = ticketHTML(head);
+      const agent = document.getElementById('agent');
+      agent.textContent = ov.agent_live ? 'live' + (ov.agent_info && ov.agent_info.name ? ', ' + ov.agent_info.name + (ov.agent_info.version ? ' ' + ov.agent_info.version : '') : '') : ov.simulator ? 'simulator, no live agent' : 'offline';
+      agent.classList.toggle('on', !!ov.agent_live);
+      document.getElementById('menu').textContent = ov.esb_menu ? `${ov.esb_menu.meals} items from the ESB till, ${String(ov.esb_menu.synced_at).slice(0, 16).replace('T', ' ')}` : 'local catalog, nothing synced yet';
+      document.getElementById('open-count').textContent = cmds.filter(c => OPEN.has(c.stage)).length;
+      paintBars(cmds); paintTabs(cmds); paintBands(cmds, first);
+    }
+
+    async function poll() {
+      if (S.paused) return;
+      try { S.ov = await (await fetch('/api/bridge/overview')).json(); S.lastOk = Date.now(); render(); }
+      catch (e) { document.getElementById('agent').textContent = 'The bridge API did not answer'; }
+    }
+    function tick() {
+      const el = document.getElementById('updated');
+      if (!S.lastOk) return;
+      const s = Math.round((Date.now() - S.lastOk) / 1000);
+      el.textContent = S.paused ? 'paused' : s < 2 ? 'just now' : s + ' s ago';
+    }
+    document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (!t) return; S.tab = t.dataset.tab; paintTabs(S.ov.commands || []); paintBands(S.ov.commands || [], false); });
+    document.getElementById('pause').onclick = e => { S.paused = !S.paused; e.target.textContent = S.paused ? 'Resume the updates' : 'Pause the updates'; tick(); if (!S.paused) poll(); };
+    for (const v of document.querySelectorAll('video[autoplay]')) { const sync = () => { if (CALM.matches) { v.removeAttribute('autoplay'); v.pause(); } else v.play().catch(() => {}); }; sync(); CALM.addEventListener('change', sync); }
+    reveal(document);
+    poll(); setInterval(poll, 3000); setInterval(tick, 1000);
   </script>
 </body>
 </html>

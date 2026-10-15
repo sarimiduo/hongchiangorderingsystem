@@ -104,3 +104,28 @@ clip is 480p upscaled to a full screen (soft); the canteen's own footage should 
 share the customer screens' split; fine for consistency, a juror would call it sameness.
 Defended WARNs: mixed-font-headline (鴻匠 needs a CJK face), font-count (Noto Sans TC for CJK glyphs only),
 no-footage on inner app screens, first-action on screens whose action is per row / per tile.
+
+# midhong monitor (public-mid/index.html), 2026-10-15
+
+Direction: **The product performs** (seed 1420810439, sector dev-tool, `--keep palette,type` so the apphong
+tokens and faces carry over). Hero blueprint "sentence split by a frame" set aside in favour of the direction's
+own composition (headline upper-left, the working fragment fills the first screen): the 35%-wide 16:9 frame
+cannot hold a readable ticket. Sections dealt: stats (bars standing on the edge) → list (day tabs, banded
+agenda) → footer (a single quiet line). Signature motion: pinned story (the stage tabs stay put while the rows pass).
+Idea: On this page, the kitchen pass rail (tickets clipped in the order they came, pulled when paid) becomes the
+live queue: each order is a ticket moving along six stages until the cashier's stamp. Competitor test: Posmid's
+monitor is a log table; the rail belongs to the restaurant.
+Live thing: the ticket at the head of the rail advances as the bridge reports; the panel counts seconds since
+the last answer; the stage tabs filter the rows; one button pauses the updates.
+Baseline (old page): 8 FAIL (emoji, shadows, hairlines, 11.5px text, no pictures, no focal point, no motion).
+
+ROUND 1: 4 FAIL (headline + rail heading at 3 lines, an eyebrow above the big count, side-scrolling tabs).
+Fixed: "On the way to the till" with an authored break, "On the rail / every order so far", count and label on
+one line, tabs wrap (2 columns on a phone, a sticky column on desktop), caption at body size.
+Seen in the pictures: the ticket's six-column track overflowed a phone screen; the "today" figure said 0 while
+four orders existed (they fell outside 10:00–21:00). Fixed: minmax(0,1fr) tracks, 3×2 on a phone, stacked
+ticket header, and two extra bars "before 10" / "after 22" with the figure counting every order today.
+ROUND 2: 0 FAIL, 1 WARN (10 moving elements; defended: a monitor that re-renders every 3 s should not dance).
+Scores: design 7.5 · usability 8 · creativity 7.5 · content 7.5 → overall 7.6.
+Still short: the stats field is a 90svh grey screen whenever the day is quiet; the staff link row carries three
+plain links and no idea; the pictures repeat apphong's (no honest picture of a till exists in the collections).
