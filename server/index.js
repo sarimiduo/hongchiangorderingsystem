@@ -217,7 +217,12 @@ async function handleApi(req, res, url) {
 
 function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
-  if (rel === '/' || !path.extname(rel)) rel = '/index.html'; // SPA fallback
+  if (rel === '/') rel = '/index.html';
+  else if (!path.extname(rel)) {
+    // a folder with its own index.html (e.g. /mockup-design/) is a page of its own; anything else is the SPA
+    const own = path.normalize(path.join(PUBLIC_DIR, rel, 'index.html'));
+    rel = own.startsWith(PUBLIC_DIR) && fs.existsSync(own) ? path.join(rel, 'index.html') : '/index.html';
+  }
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, 'forbidden', 'text/plain');
   fs.readFile(file, (err, data) => {

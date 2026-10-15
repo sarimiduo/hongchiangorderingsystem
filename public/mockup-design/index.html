@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Edo Sushi — design mockup, pay by the plate</title>
+  <meta name="description" content="A clickable walkthrough of the Edo Sushi ordering app and the midhong till bridge: every screen at desktop and phone width, with the design notes.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23ffffff'/%3E%3Cellipse cx='32' cy='34' rx='26' ry='12' fill='%23c62128'/%3E%3Cellipse cx='32' cy='32' rx='17' ry='7' fill='%23e8555a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Besley:wght@800&family=Libre+Franklin:wght@400;600&family=Noto+Serif+JP:wght@900&display=swap" rel="stylesheet">
+  <script>document.documentElement.classList.add('js')</script>
+  <style>
+    /* The mockup walks through the real screens (screenshots of the live app), in the app's own system. */
+    :root {
+      --bg: #ffffff; --surface: #ebebea; --ink: #16140f; --muted: #4f4b45; --accent: #c62128; --accent-strong: #a3161d; --accent-ink: #ffffff;
+      --plate-red: #c62128; --plate-blue: #1f4e9c; --plate-green: #2f7d4f; --plate-black: #16140f; --plate-gold: #c99a2e;
+      --font-display: "Besley", "Noto Serif JP", Georgia, serif; --font-text: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --step-small: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem); --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+      --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); --step-head: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+      --margin: clamp(1.25rem, 2.6vw, 2.5rem); --gap: 12px;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --t-press: 140ms; --t-hover: 180ms; --t-ui: 240ms;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { overflow-x: clip; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-text); font-size: var(--step-body); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3, p, ul, ol, figure { margin: 0; } ul, ol { padding: 0; list-style: none; }
+    img { display: block; max-width: 100%; height: auto; background: var(--surface); }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+    a { color: inherit; }
+    ::selection { background: var(--accent); color: var(--accent-ink); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    h1, h2, .wordmark { font-family: var(--font-display); font-weight: 800; text-wrap: balance; }
+    p { max-width: 62ch; text-wrap: pretty; }
+    .muted { color: var(--muted); }
+    .link { text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 0.07em; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 1.4rem; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 600; white-space: nowrap; transition: transform var(--t-press) var(--ease-out), background-color var(--t-hover) ease; }
+    .button:active { transform: scale(0.97); }
+    @media (hover: hover) and (pointer: fine) { .button:hover { background: var(--accent-strong); } }
+    .plate { display: inline-block; width: 36px; height: 12px; border-radius: 50%; background: var(--c); position: relative; vertical-align: middle; margin-right: 6px; }
+    .plate::after { content: ""; position: absolute; left: 18%; top: 22%; width: 64%; height: 56%; border-radius: 50%; background: color-mix(in srgb, var(--c) 78%, white); }
+
+    .wrap { padding-inline: var(--margin); }
+    .topnav { display: grid; grid-template-columns: 1fr auto; align-items: center; min-height: 64px; gap: 16px; }
+    .wordmark { font-size: var(--step-lead); letter-spacing: -0.015em; text-decoration: none; }
+    .wordmark span { font-family: var(--font-text); font-weight: 400; font-size: var(--step-body); letter-spacing: 0; margin-left: 0.6em; color: var(--muted); }
+    .wordmark [lang] { font-family: "Noto Serif JP", serif; margin-left: 0.35em; }
+    .topnav a.link { min-height: 44px; display: inline-flex; align-items: center; }
+
+    .intro { padding-top: clamp(24px, 4svh, 48px); display: grid; gap: 20px; }
+    .intro h1 { font-size: clamp(2.75rem, 1.5rem + 4.6vw, 5.5rem); line-height: 0.95; letter-spacing: -0.035em; max-width: 14ch; }
+    .intro .lead { font-size: var(--step-lead); line-height: 1.35; max-width: 42ch; margin-top: 20px; }
+    .tiers { display: flex; flex-wrap: wrap; gap: 8px 24px; max-width: none; }
+    .intro .acts { display: grid; gap: 16px; max-width: 40ch; }
+    .intro .acts .button { justify-self: start; }
+    @media (min-width: 900px) { .intro { grid-template-columns: 7fr 5fr; align-items: end; } .intro .tiers { grid-column: 1 / -1; } }
+
+    /* the walkthrough: a list of screens beside the picture; the picture is the control */
+    .walk { margin-top: clamp(48px, 7vw, 96px); display: grid; gap: var(--gap); }
+    .screens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-content: start; }
+    .screens button { padding: 6px 6px 10px; background: var(--surface); display: grid; gap: 8px; transition: transform var(--t-press) var(--ease-out), background-color var(--t-hover) ease, color var(--t-hover) ease; }
+    .screens button img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+    .screens button b { font-weight: 600; display: block; padding-inline: 6px; line-height: 1.2; } .screens button span { display: block; font-size: var(--step-small); color: var(--muted); padding-inline: 6px; }
+    .screens button.on { background: var(--ink); color: var(--bg); } .screens button.on span { color: var(--bg); }
+    .screens button:active { transform: scale(0.97); }
+    @media (hover: hover) and (pointer: fine) { .screens button:not(.on):hover { background: #dcdcda; } }
+    .stage { background: var(--surface); padding: var(--gap); display: grid; gap: var(--gap); grid-template-columns: 1fr; }
+    .frame { position: relative; background: var(--bg); cursor: pointer; overflow: hidden; }
+    .frame img { width: 100%; }
+    .frame .phone { position: absolute; right: 12px; bottom: 12px; width: 26%; max-width: 230px; background: var(--ink); padding: 6px; }
+    .frame .phone img { width: 100%; }
+    .note { background: var(--bg); padding: 20px 24px 24px; display: grid; gap: 14px; align-content: start; }
+    .note h2 { font-size: var(--step-head); line-height: 1; letter-spacing: -0.025em; }
+    .note .acts { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .note .acts .link { min-height: 44px; display: inline-flex; align-items: center; }
+    .phone-only { display: none; }
+    .phone-only img { width: 100%; max-width: 320px; background: var(--ink); padding: 6px; margin-top: 6px; }
+    @media (min-width: 900px) {
+      .screens { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .stage { grid-template-columns: minmax(0, 1fr) 320px; }
+      .frame .phone { width: 22%; }
+    }
+    /* every screen at phone width */
+    .phones { margin-top: clamp(48px, 7vw, 96px); }
+    .phones h2 { font-size: var(--step-head); line-height: 1; letter-spacing: -0.025em; max-width: 16ch; }
+    .phones .lead { font-size: var(--step-lead); line-height: 1.35; max-width: 40ch; margin-top: 12px; }
+    .phones .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--gap); margin-top: 32px; }
+    .phones figure { background: var(--ink); padding: 6px; }
+    .phones figure img { width: 100%; }
+    .phones figcaption { color: var(--bg); padding: 10px 8px 6px; font-weight: 600; }
+    @media (min-width: 600px) { .phones .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 900px) { .phones .grid { grid-template-columns: repeat(5, 1fr); } }
+    @media (min-width: 600px) and (max-width: 899px) { .screens { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+    @media (max-width: 599px) { .frame .phone { display: none; } .phone-only { display: block; } }
+
+    .foot { margin-top: 16svh; padding: 0 var(--margin) 30px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: baseline; font-size: var(--step-small); color: var(--muted); }
+    .foot nav { display: flex; gap: 24px; } .foot nav a { color: var(--ink); text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 0.07em; }
+    .foot .r { text-align: right; }
+    @media (max-width: 599px) { .foot { grid-template-columns: 1fr; gap: 8px; margin-top: 20svh; } .foot .r { text-align: left; } }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .js [data-rise] { opacity: 0; transform: translateY(18px); animation: rise 800ms var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 90ms + 120ms); }
+      .js [data-reveal] { opacity: 0; transform: translateY(20px); transition: opacity 600ms var(--ease-out), transform 800ms var(--ease-out); transition-delay: calc(var(--i, 0) * 60ms); }
+      .js [data-reveal].is-in { opacity: 1; transform: none; }
+      .js .frame img.swap { animation: fade 400ms var(--ease-out); }
+    }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <div class="topnav">
+      <a class="wordmark" href="/mockup-design/">Edo Sushi <span lang="ja">江戸</span><span>design mockup</span></a>
+      <a class="link" href="/">Open the live app</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap intro" aria-labelledby="h1">
+      <div>
+        <h1 id="h1" data-rise style="--i:0">Pay by the plate</h1>
+        <p class="lead" data-rise style="--i:1">The stack of coloured plates, the kaiten bill counted by colour at the end, is the whole interface. Every item is a plate of one colour, the slip is your stack, and the cashier screen shows the stack beside the table number.</p>
+      </div>
+      <p class="acts" data-rise style="--i:2"><a class="button" href="#walk" id="start">Start the walkthrough</a><span>Click the picture to step through the screens, or pick one from the strip. Every screen opens in the live app from its note.</span></p>
+      <p class="tiers" data-rise style="--i:3" id="tiers"></p>
+    </section>
+
+    <section class="wrap walk" id="walk" aria-label="The screens">
+      <div class="screens" id="screens" role="tablist"></div>
+      <div class="stage" data-reveal style="--i:2">
+        <div class="frame" id="frame" title="Next screen">
+          <img id="shot" src="shots/home-desktop.jpg" width="1440" height="900" alt="">
+          <div class="phone"><img id="shot-phone" src="shots/home-phone.jpg" width="780" height="1688" alt=""></div>
+        </div>
+        <div class="note">
+          <h2 id="note-h">Home</h2>
+          <p id="note-p"></p>
+          <div class="phone-only"><img id="shot-phone-2" src="shots/home-phone.jpg" width="780" height="1688" alt=""></div>
+          <div class="acts"><a class="button" id="open" href="/">Open this screen in the app</a><button class="link" id="next" type="button">Next screen</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap phones" aria-labelledby="phones-h">
+      <h2 id="phones-h" data-reveal>Every screen on a phone</h2>
+      <p class="lead" data-reveal style="--i:1">The phone is its own composition: the picture first, then the sheet slides over it; the stack becomes a bar at the bottom of the belt.</p>
+      <div class="grid" id="phones"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Edo Sushi ordering app, on the Hong Chiang kitchen display and the ESB till</span>
+    <nav aria-label="Footer"><a href="/">Ordering app</a><a id="mid-link" href="/">midhong monitor</a></nav>
+    <span class="r">Screenshots of the live app; the prints and photographs in them are credited on the app itself.</span>
+  </footer>
+
+  <script>
+    'use strict';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const mid = location.hostname.startsWith('apphong') ? location.origin.replace('apphong', 'midhong') : `${location.protocol}//${location.hostname}:${location.port === '3005' ? '3105' : '3100'}`;
+    document.getElementById('mid-link').href = mid;
+    const SCREENS = [
+      { id: 'home', name: 'Home', sub: 'order here, pay by the plate', link: '/#/', note: 'One headline, one action, and Hiroshige’s Edo beside it. The guest either picks a table or types the number on the table stand; the app checks it against the floor plan before anything is ordered. Further down, the slip fragment plays the three steps: pick your plates, the kitchen sends them, pay by the plate.' },
+      { id: 'tables', name: 'Pick a free table', sub: 'live from the kitchen display', link: '/#/tables', note: 'The floor plan as the kitchen display reports it, taken tables greyed out. Choosing a table asks how many are eating, in the words the floor staff use, then opens the belt.' },
+      { id: 'belt', name: 'The belt', sub: 'every item is a plate of one colour', link: '/#/menu?mode=dinein&table=5&table_id=13', note: 'The menu by category, each row with its plate colour, price and a box to add. The stack beside it fills as you tick: a flat drawing of the plates in their real colours and the count by colour, with the service line and the total. On a phone the stack is a bar at the bottom.' },
+      { id: 'dialog', name: 'A plate’s choices', sub: 'style, wasabi, heat, portion', link: '/#/menu?mode=dinein&table=5&table_id=13', note: 'Items with choices open a sheet: the plate, its price, the choices as filled boxes, how many, and one button that names the price. Required choices keep the button off until picked.' },
+      { id: 'stack', name: 'Your stack', sub: 'change plates, write a note, save', link: '/#/cart', note: 'The full slip: table number, the stack, every line with its plate and count (editable), subtotal, service and total, a note for the kitchen, and the single action, Save order. There is no payment in the app; the cashier settles the table.' },
+      { id: 'cashier', name: 'Show the cashier', sub: 'the table number, the stack, the total', link: '/#/status', note: 'After saving, the table number at display size in red, the table total and the combined stack so the cashier can count by colour, then what the till bridge reports: sent, picked up by the branch agent, table opened on the ESB till, occupied, waiting for the cashier, settled. When midhong reports the bill settled, the screen is stamped paid.' },
+      { id: 'rounds', name: 'The rounds', sub: 'add another order from the same seat', link: '/#/status', note: 'A guest can go back to the belt and send more. Each round is kept apart: first order, second order, each with its own lines, the kitchen’s word on each plate and that round’s stage at the till. The totals and the stack above add them all up. On the ESB side each round is a new batch on the same open table.' },
+      { id: 'monitor', name: 'midhong monitor', sub: 'the bridge, for staff', link: mid, note: 'The middleware’s own page: the ticket at the head of the rail with its six stages, the branch agent and menu state, seconds since the last answer, then the day by hour and every order as a banded row with stage tabs. This is where the Hong Chiang side and the ESB side meet.' },
+      { id: 'monitor-rail', name: 'The rail', sub: 'every order since the bridge started', link: mid, note: 'Stage tabs filter the rows; each row carries the time, the order, dine-in or takeout, lines and total, the stage, the ESB sale and bill numbers, and whether the app was told. It refreshes every three seconds and can be paused.' },
+    ];
+    let at = Math.max(0, SCREENS.findIndex(s => '#' + s.id === location.hash));
+    function paint(animate) {
+      const s = SCREENS[at];
+      const shot = document.getElementById('shot'), ph = document.getElementById('shot-phone'), ph2 = document.getElementById('shot-phone-2');
+      shot.src = `shots/${s.id}-desktop.jpg`; shot.alt = `${s.name}, desktop`;
+      ph.src = ph2.src = `shots/${s.id}-phone.jpg`; ph.alt = ph2.alt = `${s.name}, phone`;
+      if (animate) { shot.classList.remove('swap'); void shot.offsetWidth; shot.classList.add('swap'); }
+      document.getElementById('note-h').textContent = s.name;
+      document.getElementById('note-p').textContent = s.note;
+      document.getElementById('open').href = s.link;
+      document.getElementById('next').textContent = at === SCREENS.length - 1 ? 'Back to the first screen' : 'Next screen';
+      document.querySelectorAll('#screens button').forEach((b, i) => { b.classList.toggle('on', i === at); b.setAttribute('aria-selected', i === at); });
+      history.replaceState(null, '', '#' + s.id);
+    }
+    document.getElementById('screens').innerHTML = SCREENS.map((s, i) => `<button role="tab" data-i="${i}" data-reveal style="--i:${i}"><img src="shots/${s.id}-desktop.jpg" width="1440" height="900" alt="${esc(s.name)}, desktop" loading="lazy" decoding="async"><b>${esc(s.name)}</b><span>${esc(s.sub)}</span></button>`).join('');
+    document.getElementById('phones').innerHTML = SCREENS.map((s, i) => `<figure data-reveal style="--i:${i % 5}"><img src="shots/${s.id}-phone.jpg" width="780" height="1688" alt="${esc(s.name)}, phone" loading="lazy" decoding="async"><figcaption>${esc(s.name)}</figcaption></figure>`).join('');
+    const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+    document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
+    document.getElementById('start').onclick = e => { e.preventDefault(); document.getElementById('walk').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+    document.getElementById('screens').onclick = e => { const b = e.target.closest('[data-i]'); if (!b) return; at = Number(b.dataset.i); paint(true); };
+    const step = d => { at = (at + d + SCREENS.length) % SCREENS.length; paint(true); };
+    document.getElementById('frame').onclick = () => step(1);
+    document.getElementById('next').onclick = () => step(1);
+    document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') step(1); if (e.key === 'ArrowLeft') step(-1); });
+    fetch('/api/menu').then(r => r.json()).then(m => {
+      const tiers = (m.store && m.store.plates) || {};
+      const fmt = n => 'Rp' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      document.getElementById('tiers').innerHTML = Object.entries(tiers).sort((a, b) => a[1] - b[1]).map(([c, p]) => `<span><span class="plate" style="--c:var(--plate-${esc(c)})"></span>${esc(c)} plate ${fmt(p)}</span>`).join('');
+    }).catch(() => {});
+    paint(false);
+  </script>
+</body>
+</html>
