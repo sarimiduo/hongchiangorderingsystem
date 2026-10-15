@@ -154,3 +154,11 @@ carry the name on the home, tables, menu and boards; the two plate photographs a
 where the stack is literal. Credits in the home footer and midhong's caption.
 Gate: home 0 FAIL, menu 0, status 0, midhong 0; npm test 33/33.
 Sample content to confirm: the whole catalog (26 items, plate tiers, option groups) and the hours.
+
+## Rounds (additional orders from the same seat), 2026-10-15
+Every Save Order is a round kept in sessionStorage `hc_orders` (same mode + table = one visit). The belt's slip
+says how many plates are already on the way; the status screen shows the table total and combined stack, then
+each round as its own panel ("First order, 10:42", lines with the kitchen's word, the bridge stage for that
+round), the till steps for the latest round, "Add another round" until every round is settled. The bridge
+attaches later rounds to the same ESB head as a new batch (golden rule 4), so nothing changed server-side.
+Verified with a scripted Chrome run (two rounds on table 5): screenshots in `.taste-skill/rounds/`.

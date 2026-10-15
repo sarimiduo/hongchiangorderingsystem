@@ -102,6 +102,10 @@ own dishes. (The earlier Taiwanese 點餐單 idea and pictures, 2026-10-14, were
 of the brand and were removed; `credits.json` still lists them as history.)
 Deep links: `#/menu?mode=dinein&table=5` (QR on a table), `#/menu?mode=walkin`,
 `#/status?order_no=ORD…`. Design notes + critique: `.taste-skill/notes.md`.
+Rounds: every Save Order is one round of the visit (sessionStorage `hc_orders`, same mode +
+table); the status screen lists them ("First order", "Second order"…) with the table total,
+and "Add another round" sends the guest back to the belt. Each round is its own KDS order
+and bridge command; the agent attaches it to the open ESB head as a new batch.
 The midhong monitor (`public-mid/index.html`, single file, same tokens) follows the direction
 "the product performs": the live ticket on the rail, an orders-by-hour chart, stage tabs +
 banded rows; `mid.js` serves `/img/*` from `public/img` so it reuses the credited pictures.

@@ -16,6 +16,7 @@ const S = {
   session: load('hc_session', { mode: null, table: null, pax: null, note: '' }),
   cart: load('hc_cart', []),
   lastOrder: load('hc_last_order', null),
+  orders: load('hc_orders', []),   // every round sent from this seat during the visit, oldest first
   timers: [],
   observers: [],
 };
@@ -59,6 +60,7 @@ function save() {
   sessionStorage.setItem('hc_session', JSON.stringify(S.session));
   sessionStorage.setItem('hc_cart', JSON.stringify(S.cart));
   sessionStorage.setItem('hc_last_order', JSON.stringify(S.lastOrder));
+  sessionStorage.setItem('hc_orders', JSON.stringify(S.orders));
 }
 async function api(path, body, method) {
   const res = await fetch('/api/' + path, {
@@ -108,6 +110,14 @@ function stackSummary(counts) {
   return `<p class="stack-sum">${total} ${total === 1 ? 'plate' : 'plates'} <span>${parts.join(', ')}</span></p>`;
 }
 function word(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+function hhmm(ms) { const d = new Date(ms); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); }
+const ORDINAL = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+function roundName(i) { return (ORDINAL[i] || (i + 1) + 'th') + ' order'; }
+/* rounds belong to one visit: the same mode and table; anything else starts a new visit */
+function sameVisit(r) {
+  return !!r && r.mode === S.session.mode && JSON.stringify(r.table || null) === JSON.stringify(S.session.table || null);
+}
+function visitRounds() { return S.orders.filter(sameVisit); }
 function norm(s) { return String(s || '').trim().toLowerCase().replace(/^(table|meja|t)\s*/, ''); }
 function hours() { return (S.menu && S.menu.store && S.menu.store.hours) || 'Open today 10:00–22:00'; }
 
@@ -468,7 +478,11 @@ function renderMenu() {
 }
 
 function addToCart(meal, qty, options, optionsPrice, remarks) {
-  S.cart.push({
+  // the same plate with the same choices is one line with a bigger count, not a second line
+  const key = JSON.stringify(options || {}) + '|' + (remarks || '');
+  const same = S.cart.find(i => i.meal_id === meal.meal_id && JSON.stringify(i.options || {}) + '|' + (i.remarks || '') === key);
+  if (same) same.qty += qty;
+  else S.cart.push({
     uid: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     meal_id: meal.meal_id, qty, options, options_price: optionsPrice, remarks: remarks || '',
   });
@@ -483,6 +497,9 @@ function slipHTML({ full } = {}) {
     : `<div class="slip-table"><span class="t-meta">Takeout 持ち帰り<br>collected at the counter</span></div>`;
   const counts = plateCounts(S.cart);
   const stack = S.cart.length ? `${stackHTML(counts)}${stackSummary(counts)}` : '';
+  const earlier = visitRounds();
+  const earlierPlates = earlier.reduce((s, r) => s + Object.values(r.plates || {}).reduce((a, b) => a + b, 0), 0);
+  const sent = earlier.length ? `<p class="earlier">${earlier.length === 1 ? 'One order' : earlier.length + ' orders'} already sent from this ${dinein ? 'table' : 'session'}: <a class="link-plain" href="#/status">${earlierPlates} ${earlierPlates === 1 ? 'plate' : 'plates'} on the way</a>. This stack is a new round.</p>` : '';
   const lines = S.cart.length ? `<ul class="slip-lines">${S.cart.map(i => {
     const m = mealById(i.meal_id);
     const ops = Object.values(i.options || {}).flat();
@@ -500,7 +517,7 @@ function slipHTML({ full } = {}) {
   const note = S.cart.length ? `<p class="note"><label class="sr-only" for="order-note">A note for the kitchen</label><input class="field" id="order-note" placeholder="A note for the kitchen" value="${esc(S.session.note || '')}"></p>` : '';
   const action = S.cart.length ? `<button class="button button-wide" id="save-order">Save order</button>` : '';
   const title = full ? `<h1 class="head">Your stack</h1>` : `<h2 class="lead-h">Your stack</h2>`;
-  return `${title}${head}${stack}${lines}${sums}${note}${action}${!full && S.cart.length ? `<a class="ghost" href="#/cart">Change plates</a>` : ''}`;
+  return `${title}${head}${sent}${stack}${lines}${sums}${note}${action}${!full && S.cart.length ? `<a class="ghost" href="#/cart">Change plates</a>` : ''}`;
 }
 function bindSlip(slip, repaint) {
   const btn = slip.querySelector('#save-order'); if (btn) btn.onclick = saveOrder;
@@ -626,67 +643,96 @@ async function saveOrder() {
     })),
   });
   if (!out.status) { toast('Could not save: ' + out.msg); btn.disabled = false; btn.textContent = 'Save order'; return; }
-  S.lastOrder = {
+  const round = {
     order_no: out.data.order_no, reservation_id: out.data.reservation_id,
     mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(), plates: plateCounts(S.cart),
+    created: Date.now(),
+    items: S.cart.map(i => {
+      const m = mealById(i.meal_id);
+      return { meal_id: i.meal_id, name: m.short_name, qty: i.qty, plate: plateOf(m), options: Object.values(i.options || {}).flat().join(', ') };
+    }),
   };
+  // a round on a different table (or mode) starts a new visit; earlier rounds stay with their own screen
+  if (!S.orders.every(sameVisit)) S.orders = [];
+  S.orders.push(round); S.lastOrder = round;
   S.cart = []; S.session.note = ''; save();
   go('status');
 }
 
 /* ------------------------------------------------------------------ status */
-/* The "show the cashier" screen: the table number (or the takeout call number) at display size,
- * then what the till bridge and the kitchen display report. The slip is stamped paid when
- * midhong reports that the ESB cashier settled the bill. #/status?order_no=… reopens an order
- * from the bridge record (after a refresh, or from another device). */
+/* The "show the cashier" screen for the whole visit: the table number (or the takeout call number)
+ * at display size, the table total and the combined stack, then every round sent from this seat
+ * (first order, second order…) with its plates and the kitchen's word on each line, and what the
+ * till bridge reports for the latest round. The guest can go back to the belt and send another
+ * round; the bridge attaches it to the same open ESB head as a new batch (agent golden rule 4).
+ * The screen is stamped paid once midhong reports every round settled. #/status?order_no=… reopens
+ * one order from the bridge record (after a refresh, or from another device). */
+function roundHTML(r, i, n) {
+  const items = (r.items || []).map(it => `<li>${plateHTML(it.plate || 'red')}<span>${it.qty} × ${esc(it.name)}${it.options ? `<span class="op">${esc(it.options)}</span>` : ''}</span><span class="st">Sent</span></li>`).join('');
+  return `<section class="round" data-reveal style="--i:${i}">
+    <h2 class="lead-h">${n > 1 ? roundName(i) : 'Your order'}<span>${r.created ? ', ' + hhmm(r.created) : ''}</span></h2>
+    <p class="muted">Order ${esc(r.order_no)}${r.total ? ', ' + fmt(r.total) : ''}</p>
+    <ul class="kitchen plated" id="k-${esc(r.order_no)}">${items || '<li class="wait">Asking the kitchen display…</li>'}</ul>
+    <p class="rstage" id="s-${esc(r.order_no)}">${r.paid ? 'Settled' : ''}</p>
+  </section>`;
+}
 async function renderStatus(q) {
   const want = q && q.get('order_no');
-  if (want && (!S.lastOrder || S.lastOrder.order_no !== want)) {
+  let rounds = S.orders.length ? S.orders : (S.lastOrder ? [S.lastOrder] : []);
+  if (want && !rounds.some(r => r.order_no === want)) {
     const st = await api('bridge/status?order_no=' + encodeURIComponent(want));
     if (st && st.stage) {
-      S.lastOrder = { order_no: want, mode: st.mode, table: st.table_name ? { name: st.table_name } : null, paid: st.stage === 'settled', total: Number(st.total) || 0 };
-      save();
+      rounds = [{ order_no: want, mode: st.mode, table: st.table_name ? { name: st.table_name } : null, paid: st.stage === 'settled', total: Number(st.total) || 0, created: Date.now() }];
+      S.orders = rounds; S.lastOrder = rounds[0]; save();
     }
   }
-  const o = S.lastOrder;
-  if (!o) { go('home'); return; }
+  if (!rounds.length) { go('home'); return; }
+  const o = rounds[rounds.length - 1];
   const dinein = o.mode === 'dinein' && o.table;
   const call = String(o.order_no).slice(-4);
+  const total = rounds.reduce((s, r) => s + (r.total || 0), 0);
+  const plates = {};
+  rounds.forEach(r => Object.entries(r.plates || {}).forEach(([c, n]) => { plates[c] = (plates[c] || 0) + n; }));
+  const canAdd = () => !rounds.every(r => r.paid) && sameVisit(o);
   $app.innerHTML = `
     <div class="stage">
       <aside class="still">${photoStack(['stack', 'piled', 'bonito', 'sushi'])}${hoursBar('Show this screen to the cashier')}</aside>
       <section class="sheet cashier">
         <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<span></span>`)}</div>
         <h1 class="display nums" data-rise style="--i:1">${esc(dinein ? o.table.name : call)}</h1>
-        <p class="lead" data-rise style="--i:2">${dinein ? `Table 卓 ${esc(o.table.name)}<br><span class="muted">Order ${esc(o.order_no)}</span>` : `Takeout 持ち帰り, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
-        <p class="total head nums" data-rise style="--i:3">${fmt(o.total)}</p>
-        ${o.plates ? `<div class="plates" data-rise style="--i:4">${stackHTML(o.plates)}${stackSummary(o.plates)}</div>` : ''}
-        <p class="msg" id="cc-msg" data-rise style="--i:5">${o.paid ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier; the plates are counted by colour.'}</p>
-        <div class="stamp" id="stamp" ${o.paid ? '' : 'hidden'}>Paid 済<small id="stamp-sub"></small></div>
+        <p class="lead" data-rise style="--i:2">${dinein ? `Table 卓 ${esc(o.table.name)}<br><span class="muted">${rounds.length === 1 ? 'Order ' + esc(o.order_no) : rounds.length + ' orders from this table'}</span>` : `Takeout 持ち帰り, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
+        <p class="total head nums" data-rise style="--i:3">${fmt(total)}</p>
+        ${Object.keys(plates).length ? `<div class="plates" data-rise style="--i:4">${stackHTML(plates)}${stackSummary(plates)}</div>` : ''}
+        <p class="msg" id="cc-msg" data-rise style="--i:5">${rounds.every(r => r.paid) ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier; the plates are counted by colour.'}</p>
+        <div class="stamp" id="stamp" ${rounds.every(r => r.paid) ? '' : 'hidden'}>Paid 済<small id="stamp-sub"></small></div>
+        <p class="after-links" data-rise style="--i:6"><a class="button" id="add-round" href="#/menu" ${canAdd() ? '' : 'hidden'}>Add another round</a><a class="link-plain" href="#/" id="new-session">New session</a></p>
+        <div class="rounds" id="rounds">${rounds.map((r, i) => roundHTML(r, i, rounds.length)).join('')}</div>
         <section class="status-sec" data-reveal><h2 class="lead-h">At the counter</h2><ol class="steps" id="bridge-live"><li class="wait">Asking the till bridge…</li></ol></section>
-        <section class="status-sec" data-reveal style="--i:1"><h2 class="lead-h">In the kitchen</h2><ul class="kitchen" id="meals-live"><li class="wait">Asking the kitchen display…</li></ul></section>
-        <p class="after-links" data-reveal style="--i:2"><a class="link-plain" href="#/menu">Order more</a><a class="link-plain" href="#/" id="new-session">New session</a></p>
       </section>
     </div>`;
   document.getElementById('new-session').onclick = () => { sessionStorage.clear(); };
   startCrossfade(document.querySelector('.still .photos'));
   reveal();
 
-  function markPaid(st) {
-    const stamp = document.getElementById('stamp'), msg = document.getElementById('cc-msg');
-    if (!stamp) return;
-    stamp.hidden = false;
-    document.getElementById('stamp-sub').textContent = `payment ${st.payment_method || ''}${st.billNum ? ', bill ' + st.billNum : ''}`;
-    msg.textContent = 'Finished, paid.';
-    o.paid = true; save();
+  function stageWord(st) {
+    if (st.stage === 'voided') return 'Voided by the cashier on the ESB till';
+    if (st.stage === 'error') return 'Bridge error: ' + (st.error || '');
+    const s = BRIDGE_STAGES.find(x => x[0] === st.stage);
+    return s ? s[1] : word(st.stage);
   }
-  async function pollBridge() {
+  function markAllPaid() {
+    const stamp = document.getElementById('stamp'), msg = document.getElementById('cc-msg'), add = document.getElementById('add-round');
+    if (!stamp || !rounds.every(r => r.paid)) return;
+    const last = rounds[rounds.length - 1].payment || {};
+    stamp.hidden = false;
+    document.getElementById('stamp-sub').textContent = `payment ${last.payment_method || ''}${last.billNum ? ', bill ' + last.billNum : ''}`;
+    msg.textContent = 'Finished, paid.';
+    if (add) add.hidden = true;
+  }
+  function paintSteps(st) {
     const box = document.getElementById('bridge-live');
     if (!box) return;
-    let st = null;
-    try { st = await api('bridge/status?order_no=' + encodeURIComponent(o.order_no)); } catch (e) { /* keep the last state */ }
-    if (!st || !st.stage) { box.innerHTML = `<li class="wait">${st && st.msg ? esc(st.msg) : 'No bridge record for this order yet.'}</li>`; return; }
-    if (st.stage === 'settled') markPaid(st);
+    if (!st || !st.stage) { box.innerHTML = `<li class="wait"><span>${st && st.msg ? esc(st.msg) : 'No bridge record for this order yet.'}</span></li>`; return; }
     const at = BRIDGE_STAGES.findIndex(s => s[0] === st.stage);
     const ended = ['voided', 'error'].includes(st.stage);
     box.innerHTML = BRIDGE_STAGES.map((s, i) => {
@@ -701,16 +747,26 @@ async function renderStatus(q) {
       + (st.stage === 'error' ? `<li class="is-now"><span>Bridge error: ${esc(st.error || '')}</span></li>` : '')
       + `<li class="small"><span>${st.agent_live ? 'Live branch agent connected' : (st.simulated ? 'Simulator, no live agent' : 'No branch agent connected')}</span></li>`;
   }
+  async function pollRound(r, i) {
+    let st = null;
+    try { st = await api('bridge/status?order_no=' + encodeURIComponent(r.order_no)); } catch (e) { /* keep the last state */ }
+    if (st && st.stage) {
+      if (st.stage === 'settled' && !r.paid) { r.paid = true; r.payment = { payment_method: st.payment_method, billNum: st.billNum }; save(); }
+      const el = document.getElementById('s-' + r.order_no);
+      if (el) el.textContent = r.paid ? 'Settled' : stageWord(st);
+    }
+    if (i === rounds.length - 1) paintSteps(st);
+    const out = await api('kds/orders/details', { order_id: r.order_no });
+    const box = document.getElementById('k-' + r.order_no);
+    if (!box || !out.status) return;
+    box.innerHTML = out.data.order_meals.map(m => {
+      const meal = mealById(m.meal_id);
+      return `<li>${meal ? plateHTML(plateOf(meal)) : '<span></span>'}<span>${m.quantity} × ${esc(meal ? meal.short_name : m.meal_name)}${m.remarks ? `<span class="op">${esc(m.remarks)}</span>` : ''}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`;
+    }).join('');
+  }
   async function poll() {
-    pollBridge();
-    const out = await api('kds/orders/details', { order_id: o.order_no });
-    const box = document.getElementById('meals-live');
-    if (!box) return;
-    if (!out.status) { box.innerHTML = `<li class="wait">No details yet (${esc(out.msg)})</li>`; return; }
-    const ord = out.data.order;
-    box.innerHTML = out.data.order_meals.map(m => `
-      <li><span>${m.quantity} × ${esc(m.meal_name)}${m.remarks ? `<span class="op">${esc(m.remarks)}</span>` : ''}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`).join('')
-      + `<li><span>Order</span><span class="st st-${esc(ord.status)}">${esc(word(ord.status))}, ${fmt(Number(ord.total_price))}</span></li>`;
+    await Promise.all(rounds.map(pollRound));
+    markAllPaid();
   }
   poll();
   S.timers.push(setInterval(poll, 5000));

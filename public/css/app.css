@@ -348,7 +348,19 @@ button.block:active { transform: scale(0.98); }
 .kitchen li:nth-child(even) { background: var(--surface); margin-inline: -12px; padding-inline: 12px; }
 .kitchen .st { color: var(--muted); white-space: nowrap; }
 .kitchen .st-READY, .kitchen .st-PAID, .kitchen .st-paid, .kitchen .st-COMPLETED { color: var(--ink); font-weight: 600; }
-.after-links { margin-top: 40px; display: flex; gap: 28px; flex-wrap: wrap; }
+.after-links { margin-top: 40px; display: flex; gap: 28px; flex-wrap: wrap; align-items: center; }
+
+/* the rounds sent from this seat during the visit */
+.rounds { margin-top: clamp(40px, 7svh, 72px); display: grid; gap: 20px; }
+.round { background: var(--surface); padding: 20px 20px 16px; }
+.round .lead-h { margin-bottom: 2px; }
+.round .lead-h span { font-family: var(--font-text); font-weight: 400; font-size: var(--step-body); letter-spacing: 0; color: var(--muted); }
+.round .kitchen { margin-top: 12px; }
+.round .kitchen li:nth-child(even) { background: var(--bg); }
+.kitchen.plated li { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; }
+.kitchen.plated .plate { width: 36px; height: 12px; }
+.round .rstage { margin-top: 12px; font-weight: 600; min-height: 1.5em; }
+.slip .earlier { margin: 4px 0 12px; }
 
 /* ---------- dialogs (they float, so they may cast a shadow) ---------- */
 .mask { position: fixed; inset: 0; z-index: 60; background: rgba(22, 20, 15, 0.55); display: flex; align-items: flex-end; justify-content: center; }
