@@ -108,6 +108,7 @@ async function handleApi(req, res, url) {
   }
   if (req.method === 'GET' && route === 'bridge/overview') return send(res, 200, bridge.overview());
   if (req.method === 'GET' && route === 'bridge/menu') return send(res, 200, bridge.appMenuFromEsb() || { source: null });
+  if (req.method === 'GET' && route === 'bridge/tables') return send(res, 200, bridge.appTablesFromEsb() || { source: null });
 
   // ---- apphong → midhong: order intake (Bearer BRIDGE_TOKEN) ----
   if (req.method === 'POST' && route === 'bridge/orders') {
@@ -154,6 +155,9 @@ async function handleApi(req, res, url) {
     }
     if (req.method === 'POST' && route === 'bridge/agent/menu') {
       return send(res, 200, bridge.setEsbMenu(await readBody(req)));
+    }
+    if (req.method === 'POST' && route === 'bridge/agent/tables') {
+      return send(res, 200, bridge.setEsbTables(await readBody(req)));
     }
     if (req.method === 'POST' && route === 'bridge/agent/heartbeat') {
       return send(res, 200, { status: true, msg: 'success' });

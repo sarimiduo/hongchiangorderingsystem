@@ -124,4 +124,25 @@ async function menu() {
 /** Force the next menu() call to ask midhong again (keeps the last-good fallback). */
 function resetMenuCache() { menuCache = { at: 0, value: null }; }
 
-module.exports = { pushOrder, flushOutbox, status, overview, menu, resetMenuCache, outbox, BridgeDown, BRIDGE_URL };
+/** ESB-synced floor plan from midhong, or null (no sync yet). Cached 30 s,
+ * with the same last-good fallback as menu(). */
+let tablesCache = { at: 0, value: null };
+let lastGoodTables = null;
+async function tables() {
+  if (Date.now() - tablesCache.at < MENU_CACHE_MS) return tablesCache.value;
+  let value = null;
+  try {
+    const t = await call('GET', '/api/bridge/tables');
+    if (t && t.source === 'esb') value = t;
+    lastGoodTables = value;
+  } catch (e) {
+    console.error('[bridge-client] tables fetch failed: ' + e.message + (lastGoodTables ? ' — serving the last synced floor plan' : ''));
+    value = lastGoodTables;
+  }
+  tablesCache = { at: Date.now(), value };
+  return value;
+}
+/** Force the next tables() call to ask midhong again (keeps the last-good fallback). */
+function resetTablesCache() { tablesCache = { at: 0, value: null }; }
+
+module.exports = { pushOrder, flushOutbox, status, overview, menu, resetMenuCache, tables, resetTablesCache, outbox, BridgeDown, BRIDGE_URL };

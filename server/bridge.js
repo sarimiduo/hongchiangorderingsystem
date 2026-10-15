@@ -38,6 +38,7 @@ function mapPaymentMethod(esbName) {
 const state = {
   commands: [],        // newest last
   esbMenu: null,       // catalog pushed by the agent's menu sync
+  esbTables: null,     // floor plan pushed by the agent's table sync
   agentSeen: 0,        // last time a real agent called any agent endpoint
   agentInfo: null,     // {name, version} from the last agent call
   onSettled: null,     // set by server/mid.js — sends the settlement callback to apphong (not awaited)
@@ -140,6 +141,24 @@ function setEsbMenu(payload) {
   return { status: true, msg: 'success', data: { meals: payload.meals.length } };
 }
 
+/** Agent: push the ESB floor plan (table sync). */
+function setEsbTables(payload) {
+  if (!payload || !Array.isArray(payload.tables)) return { status: false, msg: 'bad payload' };
+  state.esbTables = {
+    synced_at: new Date().toISOString(),
+    tables: payload.tables.map(t => ({
+      id: Number(t.table_id), name: String(t.table_name), seats: Number(t.seats) || 2,
+    })),
+  };
+  return { status: true, msg: 'success', data: { tables: state.esbTables.tables.length } };
+}
+
+/** The floor plan the app serves: ESB-synced tables when present, else null. */
+function appTablesFromEsb() {
+  if (!state.esbTables) return null;
+  return { source: 'esb', synced_at: state.esbTables.synced_at, tables: state.esbTables.tables };
+}
+
 const TILE_COLORS = [
   ['#8C2B2B', '#C4541F'], ['#1E5B2E', '#4CA05C'], ['#1E3E5B', '#4C7CA0'],
   ['#6B3A1D', '#A0662C'], ['#4A1D6B', '#7C2CA0'], ['#8C6B2B', '#C4A41F'],
@@ -202,6 +221,7 @@ function overview() {
     agent_info: state.agentInfo,
     simulator: SIM_ENABLED && !isAgentLive(),
     esb_menu: state.esbMenu ? { synced_at: state.esbMenu.synced_at, meals: state.esbMenu.meals.length } : null,
+    esb_tables: state.esbTables ? { synced_at: state.esbTables.synced_at, tables: state.esbTables.tables.length } : null,
     commands: [...state.commands].reverse().slice(0, 50).map(c => ({
       id: c.id, order_no: c.order_no, mode: c.mode, table_name: c.table_name,
       total: c.total, stage: c.stage, simulated: c.simulated,
@@ -248,5 +268,6 @@ setInterval(simTick, 1000).unref();
 
 module.exports = {
   AGENT_TOKEN, enqueueOrder, findCommand, addEvent, listQueued, report, setEsbMenu,
-  appMenuFromEsb, statusFor, overview, touchAgent, mapPaymentMethod, state,
+  appMenuFromEsb, setEsbTables, appTablesFromEsb, statusFor, overview, touchAgent,
+  mapPaymentMethod, state,
 };

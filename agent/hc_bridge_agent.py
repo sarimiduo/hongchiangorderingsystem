@@ -90,6 +90,9 @@ class Webapp:
     def push_menu(self, payload):
         return self._call("POST", "/api/bridge/agent/menu", payload)
 
+    def push_tables(self, payload):
+        return self._call("POST", "/api/bridge/agent/tables", payload)
+
 
 # ----------------------------------------------------------------- DB layer
 class Db:
@@ -518,8 +521,18 @@ class Agent:
                 self.web.heartbeat()
                 if self.menu_sync_minutes and \
                         time.time() - last_menu_sync >= self.menu_sync_minutes * 60:
-                    self.sync_menu()
+                    # A sync failure (e.g. older midhong without the tables
+                    # endpoint) must not block order processing below, and
+                    # retries wait for the next interval, not the next poll.
                     last_menu_sync = time.time()
+                    try:
+                        self.sync_menu()
+                    except Exception as e:
+                        print("[menu-sync]", e, file=sys.stderr)
+                    try:
+                        self.sync_tables()
+                    except Exception as e:
+                        print("[table-sync]", e, file=sys.stderr)
                 for cmd in self.web.commands():
                     self.process(cmd)
                 self.watch()
@@ -562,6 +575,22 @@ class Agent:
         out = self.web.push_menu({"categories": cats or [{"id": 1, "name": "Menu"}], "meals": meals})
         print("menu sync:", out)
 
+    # ------------------------------------------------------------ table sync
+    def sync_tables(self):
+        """Push the ESB floor plan (ms_table) so the app's table picker shows
+        the real tables and seat counts instead of its seeded demo list."""
+        tables = []
+        for r in self.db.q("SELECT tableID, tableName, tableSeat FROM ms_table "
+                           "WHERE flagActive = 1"):
+            try:
+                seats = int(str(r["tableSeat"] or "").strip() or 0)
+            except ValueError:
+                seats = 0
+            tables.append({"table_id": r["tableID"], "table_name": r["tableName"],
+                           "seats": seats or 2})
+        out = self.web.push_tables({"tables": tables})
+        print("table sync:", out)
+
     def probe(self):
         for t in ("tr_saleshead", "tr_salesmenu", "tr_tableusage", "ms_table", "ms_menu",
                   "ms_visitpurpose", "tr_salespayment", "ms_paymentmethod",
@@ -578,6 +607,7 @@ def main():
     ap.add_argument("--config", default="agent.ini")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--sync-menu", action="store_true")
+    ap.add_argument("--sync-tables", action="store_true")
     ap.add_argument("--probe", action="store_true")
     args = ap.parse_args()
     agent = Agent(args.config)
@@ -585,6 +615,8 @@ def main():
         agent.probe()
     elif args.sync_menu:
         agent.sync_menu()
+    elif args.sync_tables:
+        agent.sync_tables()
     elif args.run:
         agent.run()
     else:

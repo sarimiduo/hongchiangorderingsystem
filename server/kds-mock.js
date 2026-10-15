@@ -54,6 +54,42 @@ const state = {
 };
 
 function tableById(id) { return state.tables.find(t => t.id === Number(id)); }
+
+/**
+ * Replace the floor plan with the ESB-synced table list (mock mode only).
+ * Tables are matched by NAME: existing ones keep their id and status so open
+ * reservations keep pointing at them; a DINING table that ESB no longer lists
+ * stays until its reservation completes. list: [{id, name, seats}].
+ */
+function setTables(list) {
+  if (!Array.isArray(list) || list.length === 0) return;
+  const prevByName = new Map(state.tables.map(t => [t.name, t]));
+  const next = [];
+  const fresh = [];
+  for (const t of list) {
+    const name = String(t.name);
+    const prev = prevByName.get(name);
+    if (prev) {
+      next.push(Object.assign(prev, { seats: Number(t.seats) || prev.seats }));
+    } else {
+      const row = { id: Number(t.id), name, status: 'IDLE', sort: 0, seats: Number(t.seats) || 2 };
+      next.push(row);
+      fresh.push(row);
+    }
+  }
+  for (const t of state.tables) {
+    if (t.status === 'DINING' && !next.includes(t)) next.push(t);
+  }
+  // Only brand-new rows may be renumbered; preserved ids anchor reservations.
+  const usedIds = new Set(next.filter(t => !fresh.includes(t)).map(t => t.id));
+  for (const t of fresh) {
+    while (!t.id || usedIds.has(t.id)) t.id = (t.id || 0) + 1;
+    usedIds.add(t.id);
+  }
+  next.sort((a, b) => (Number(a.name) - Number(b.name)) || String(a.name).localeCompare(String(b.name)));
+  next.forEach((t, i) => { t.sort = i + 1; });
+  state.tables = next;
+}
 function ok(data) { return { status: true, msg: 'success', data }; }
 function fail(code) { return { status: false, msg: code || 'S00001', data: [] }; }
 
@@ -241,4 +277,4 @@ function handle(url, body) {
   }
 }
 
-module.exports = { handle, createOrder, state, PAYMENT_METHODS };
+module.exports = { handle, createOrder, setTables, state, PAYMENT_METHODS };

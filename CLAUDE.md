@@ -204,9 +204,12 @@ apphong ⇄ midhong (header `Authorization: Bearer <BRIDGE_TOKEN>` both ways):
   midhong retries 6× (2,4,8,16,32,60 s) and a 60 s sweeper re-sends anything
   still unacknowledged; result in `cmd.callback {ok, attempts, last_error}`.
 - `GET /api/bridge/status?order_no=…`, `GET /api/bridge/overview`,
-  `GET /api/bridge/menu` — public reads on midhong; apphong proxies the first
-  two for the SPA (503 `bridge unreachable` with `commands: []` when down) and
-  uses the third as its catalog (30 s cache).
+  `GET /api/bridge/menu`, `GET /api/bridge/tables` — public reads on midhong;
+  apphong proxies the first two for the SPA (503 `bridge unreachable` with
+  `commands: []` when down), uses the third as its catalog (30 s cache) and, in
+  KDS mock mode only, feeds the fourth into kds-mock.setTables() before every
+  `tables/search` (30 s cache; tables matched by NAME so open reservations
+  survive; a real KDS device owns its own table list).
 
 Agent API — base is **midhong** (header `Authorization: Bearer <AGENT_TOKEN>`):
 - `GET  /api/bridge/agent/commands` → queued commands
@@ -217,6 +220,11 @@ Agent API — base is **midhong** (header `Authorization: Bearer <AGENT_TOKEN>`)
   callback to apphong, which calls the KDS update endpoint.
 - `POST /api/bridge/agent/menu` — menu sync payload `{categories, meals}`;
   when present it REPLACES the app's catalog (`/api/menu` source:"esb").
+- `POST /api/bridge/agent/tables` — table sync payload
+  `{tables:[{table_id, table_name, seats}]}` from `ms_table` (flagActive=1);
+  when present it replaces the app's floor plan (see `GET /api/bridge/tables`).
+  The agent pushes menu + tables at startup and every `menu_sync_minutes`
+  (agent.ini, default 10, 0 = manual `--sync-menu` / `--sync-tables` only).
 - `POST /api/bridge/agent/heartbeat`
 
 Agent golden rules (inherited from the production Posmid replication middleware):

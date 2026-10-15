@@ -54,3 +54,14 @@ test('onSettled rejection is recorded as an event, not thrown', async () => {
 test('AGENT_TOKEN has no default', () => {
   assert.equal(bridge.AGENT_TOKEN, 't-agent');
 });
+
+test('setEsbTables replaces the floor plan served to the app', () => {
+  assert.equal(bridge.appTablesFromEsb(), null);
+  assert.equal(bridge.setEsbTables({}).status, false);
+  const out = bridge.setEsbTables({ tables: [{ table_id: 23, table_name: '1', seats: '2' }] });
+  assert.equal(out.status, true);
+  assert.equal(out.data.tables, 1);
+  const t = bridge.appTablesFromEsb();
+  assert.equal(t.source, 'esb');
+  assert.deepEqual(t.tables, [{ id: 23, name: '1', seats: 2 }]);
+});

@@ -60,6 +60,12 @@ async function kds(relPath, body) {
     });
     return res.json();
   }
+  // Mock mode: the ESB-synced floor plan (from midhong, 30 s cache) replaces
+  // the seeded demo tables; a real KDS device owns its own table list.
+  if (relPath === 'tables/search') {
+    const esb = await bridgeClient.tables();
+    if (esb && Array.isArray(esb.tables)) kdsMock.setTables(esb.tables);
+  }
   return kdsMock.handle(relPath, body || {});
 }
 
