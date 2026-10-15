@@ -68,9 +68,13 @@ suppresses the simulator. Both bind `127.0.0.1` (`HOST` overrides, Docker only).
 
 Deployed at: `https://apphong.berkatselalu.com` (apphong, unit `hongchiang`,
 port 3000) and `https://midhong.berkatselalu.com` (midhong, unit
-`hongchiang-mid`, port 3100) — VPS path `/var/www/hongchiangorderingsystem`,
-nginx reverse proxies, certbot SSL. Deploy = `git pull` +
-`systemctl restart hongchiang hongchiang-mid`.
+`hongchiang-mid`, port 3100) — nginx reverse proxies, certbot SSL.
+**Actual VPS checkout: `/home/dewa-dev/work/hongchiang-esb`, owned by user
+`dewa-dev`** (the docs' `/var/www/...` is the generic example — adjust paths).
+Deploy = plain `git pull` as dewa-dev (NO `sudo -u www-data`, it triggers
+git's dubious-ownership refusal) + `sudo systemctl restart hongchiang
+hongchiang-mid`. The systemd units' WorkingDirectory/User must match that
+checkout and user.
 
 ## UI design (apphong SPA, redesigned 2026-10-14 with the `design-taste-frontend` skill)
 

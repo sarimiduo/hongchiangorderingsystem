@@ -34,8 +34,9 @@ never exposed beyond the LAN.
 ### A1. Pull the latest code
 
 ```bash
-cd /var/www/hongchiangorderingsystem
-sudo -u www-data git pull
+# your checkout (on this VPS: /home/dewa-dev/work/hongchiang-esb)
+cd ~/work/hongchiang-esb
+git pull   # run as the repo's owner — no sudo
 ```
 
 ### A2. Generate the two tokens
@@ -50,7 +51,7 @@ Copy both outputs somewhere safe for the next steps.
 ### A3. Edit the environment file
 
 ```bash
-sudo nano /var/www/hongchiangorderingsystem/.env
+nano ~/work/hongchiang-esb/.env   # the .env next to server/ in your checkout
 ```
 
 Make it contain (template is `.env.example`):
