@@ -1,0 +1,5 @@
+{
+  "_captured": "2026-10-19 vendor test KDS 192.168.100.200:5500 — REAL error responses differ from the spec's {status:false,msg,data} failure example: errors come back as {code,msg} with NO status field. Consumers must treat a missing status field as failure, and S00052 order_not_found as a NORMAL state (table simply has no open order), not a fault.",
+  "orders_details_no_open_order": { "code": "S00052", "msg": "Error:order_not_found" },
+  "wrong_http_method_or_route":   { "code": "S00002", "msg": "Error:method_not_allowed" }
+}

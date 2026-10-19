@@ -139,6 +139,10 @@ auth, table names are mixed numeric/alphanumeric ("5", "A05"). One difference
 from our mock: the real `tables/search` INCLUDES past COMPLETED reservations
 in `reservations[]` — any consumer (esp. a future KDS poller) must filter by
 reservation status itself, never assume the array holds only open ones.
+Real ERROR shape also differs from the spec: errors are `{code, msg}` with NO
+`status` field (e.g. S00052 `Error:order_not_found` when a table has no open
+order — a normal state, not a fault; S00002 `Error:method_not_allowed` when
+the HTTP method/route is wrong). Treat a missing `status` as failure.
 The vendor's official integration flows (WhatsApp, 2026-10-19) confirm the
 pull model: the POS polls tables/search + orders/details and settles via
 reservations/update / walkIns/update — no push API or webhook exists.
