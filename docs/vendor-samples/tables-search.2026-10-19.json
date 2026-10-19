@@ -1,0 +1,25 @@
+{
+    "_captured": "2026-10-19 via Postman against the vendor test KDS 192.168.100.200:5500 (no auth)",
+    "status": true,
+    "msg": "success",
+    "data": [
+        {
+            "id": 1, "name": "5", "status": "IDLE", "sort": 1, "seats": 2,
+            "reservations": [
+                {
+                    "id": 24, "date": "2026-08-14", "time": "09:56:15",
+                    "name": "直接來店", "phone": "0000000000",
+                    "status": "COMPLETED", "guest_count": 2, "dining_duration": 60,
+                    "seated_time": "2026-08-14 09:56:15",
+                    "completed_time": "2026-10-19 11:38:49", "note": "直接入座"
+                }
+            ]
+        },
+        { "id": 2, "name": "6",   "status": "IDLE", "sort": 2, "seats": 6, "reservations": [] },
+        { "id": 3, "name": "7",   "status": "IDLE", "sort": 3, "seats": 1, "reservations": [] },
+        { "id": 4, "name": "8",   "status": "IDLE", "sort": 4, "seats": 1, "reservations": [] },
+        { "id": 5, "name": "9",   "status": "IDLE", "sort": 5, "seats": 1, "reservations": [] },
+        { "id": 6, "name": "A05", "status": "IDLE", "sort": 6, "seats": 1, "reservations": [] },
+        { "id": 7, "name": "A06", "status": "IDLE", "sort": 7, "seats": 1, "reservations": [] }
+    ]
+}

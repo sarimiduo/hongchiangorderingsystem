@@ -133,6 +133,15 @@ endpoint, NO webhooks (poll only), NO auth.
 | `walkIns/update` `{order_no, status:"paid", payment_method}` | settle walk-in |
 
 Payment enum: `00` Cash, `01` Card, `02` Bonus, `03` Installment, `04` UnionPay.
+VERIFIED against the vendor's test device (192.168.100.200:5500, 2026-10-19,
+sample in docs/vendor-samples/): response shapes match the spec exactly, no
+auth, table names are mixed numeric/alphanumeric ("5", "A05"). One difference
+from our mock: the real `tables/search` INCLUDES past COMPLETED reservations
+in `reservations[]` — any consumer (esp. a future KDS poller) must filter by
+reservation status itself, never assume the array holds only open ones.
+The vendor's official integration flows (WhatsApp, 2026-10-19) confirm the
+pull model: the POS polls tables/search + orders/details and settles via
+reservations/update / walkIns/update — no push API or webhook exists.
 The webapp proxies these at `POST /api/kds/<path>`; `KDS_MODE=mock` uses
 server/kds-mock.js, `real` forwards to the device. meal_id is read-only and NOT
 customizable via this API — menu mapping to ESB uses `menu_code` instead.
