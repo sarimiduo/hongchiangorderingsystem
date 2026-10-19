@@ -151,6 +151,13 @@ COMPLETED while the order stays in_progress) ⇒ a poller probes orders/details
 per table (S00052 = empty) and never trusts tables/search alone;
 payment_method can be pre-filled "00" while unpaid — paid signal is status/
 paidtime; READY rows carry tablet_id; legacy meals have category_id 0.
+Live-seat capture (2026-10-19, tables-search-seated sample): the active
+reservation status string is exactly `SEATED` (completed_time null) and its
+`id` is the settle key for reservations/update; `table.status` stays `IDLE`
+even while SEATED/in_progress — NEVER use table.status as the busy signal;
+reservations[] lists newest first; the `time` field is hours off seated_time
+(timezone artifact) — trust seated_time. orders/details with an empty body →
+S00051 `Error:missing_order_id` (one check covers table_id and order_id).
 The vendor's official integration flows (WhatsApp, 2026-10-19) confirm the
 pull model: the POS polls tables/search + orders/details and settles via
 reservations/update / walkIns/update — no push API or webhook exists.

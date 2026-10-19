@@ -1,0 +1,16 @@
+{
+  "_captured": "2026-10-19 ~16:25 — vendor seated tables 5 and 6 through the normal flow. FINDINGS: live reservation status string is exactly SEATED (completed_time null); table.status STAYS 'IDLE' even while a SEATED reservation (and an in_progress order) exists on it — table.status is useless as a busy signal on this build, the SEATED reservation IS the signal; reservations[] lists newest first and keeps old COMPLETED entries; the reservation 'time' field differs from seated_time by hours (timezone artifact) — trust seated_time. New error: orders/details with empty body -> {code:'S00051', msg:'Error:missing_order_id'}.",
+  "table_5_id_1": {
+    "status": "IDLE",
+    "reservations": [
+      { "id": 26, "date": "2026-10-19", "time": "10:25:09", "name": "直接來店", "phone": "0000000000", "status": "SEATED", "guest_count": 2, "dining_duration": 60, "seated_time": "2026-10-19 16:25:09", "completed_time": null, "note": "直接入座" },
+      { "id": 24, "status": "COMPLETED", "completed_time": "2026-10-19 11:38:49" }
+    ]
+  },
+  "table_6_id_2": {
+    "status": "IDLE",
+    "reservations": [
+      { "id": 25, "date": "2026-10-19", "time": "10:24:25", "status": "SEATED", "guest_count": 6, "dining_duration": 60, "seated_time": "2026-10-19 16:24:25", "completed_time": null }
+    ]
+  }
+}
