@@ -143,6 +143,14 @@ Real ERROR shape also differs from the spec: errors are `{code, msg}` with NO
 `status` field (e.g. S00052 `Error:order_not_found` when a table has no open
 order — a normal state, not a fault; S00002 `Error:method_not_allowed` when
 the HTTP method/route is wrong). Treat a missing `status` as failure.
+Real ORDER capture (order 18, 155 rows, docs/vendor-samples/order-details…md):
+one row per plate always qty 1 (aggregate per meal_id); rounds APPEND to the
+same order (no batch field — group by createtime; row ids monotonic); table
+status/reservations can DECOUPLE from the open order (table IDLE + reservation
+COMPLETED while the order stays in_progress) ⇒ a poller probes orders/details
+per table (S00052 = empty) and never trusts tables/search alone;
+payment_method can be pre-filled "00" while unpaid — paid signal is status/
+paidtime; READY rows carry tablet_id; legacy meals have category_id 0.
 The vendor's official integration flows (WhatsApp, 2026-10-19) confirm the
 pull model: the POS polls tables/search + orders/details and settles via
 reservations/update / walkIns/update — no push API or webhook exists.
