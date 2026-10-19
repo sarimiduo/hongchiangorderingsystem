@@ -158,6 +158,13 @@ even while SEATED/in_progress — NEVER use table.status as the busy signal;
 reservations[] lists newest first; the `time` field is hours off seated_time
 (timezone artifact) — trust seated_time. orders/details with an empty body →
 S00051 `Error:missing_order_id` (one check covers table_id and order_id).
+Settle lifecycle VERIFIED end-to-end (settle-lifecycle sample): seating
+creates the order (createtime == seated_time; fresh orders have
+payment_method null); `reservations/update {id, COMPLETED, payment_method}`
+is the COMPLETE dine-in settle — it closes reservation AND order (next
+orders/details → S00052), and its response returns the linked `order_id` +
+`order_number` for confirmation. The stale order-18 decoupling was broken
+legacy data, not normal behavior — still tolerate it.
 The vendor's official integration flows (WhatsApp, 2026-10-19) confirm the
 pull model: the POS polls tables/search + orders/details and settles via
 reservations/update / walkIns/update — no push API or webhook exists.
