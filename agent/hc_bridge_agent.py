@@ -49,7 +49,7 @@ try:
 except ImportError:
     sys.exit("PyMySQL is required: pip install pymysql")
 
-AGENT_VERSION = "0.1.0"
+AGENT_VERSION = "0.2.0"
 
 OPEN_STATUS_IDS = (1, 13, 15, 16, 33)       # head still open / in progress
 PAID_STATUS_IDS = (8, 9, 10, 11, 31)        # finished / (half) paid / invoiced
@@ -92,6 +92,38 @@ class Webapp:
 
     def push_tables(self, payload):
         return self._call("POST", "/api/bridge/agent/tables", payload)
+
+
+# -------------------------------------------------------- Hong-Chiang KDS API
+class Kds:
+    """Client for the Hong-Chiang KDS API (verified against the vendor device,
+    docs/vendor-samples/): all POST, success = {"status": true, ...}; errors
+    are {"code","msg"} WITHOUT a status field. S00052 order_not_found is the
+    normal 'no open order here' state, not a fault."""
+
+    def __init__(self, base):
+        self.base = base.rstrip("/")
+
+    def call(self, path, body):
+        req = urllib.request.Request(
+            self.base + "/" + path.lstrip("/"),
+            data=json.dumps(body or {}).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return json.loads(r.read().decode())
+        except Exception as e:
+            return {"code": "TRANSPORT", "msg": str(e)}
+
+    @staticmethod
+    def ok(resp):
+        return isinstance(resp, dict) and resp.get("status") is True
+
+    @staticmethod
+    def code(resp):
+        return (resp or {}).get("code")
 
 
 # ----------------------------------------------------------------- DB layer
@@ -179,12 +211,23 @@ class Agent:
         self.state_path = Path(a.get("state_file", "agent_state.json"))
         # Optional [tables] section: Hong Chiang table name -> ESB tableName
         self.table_map = dict(cp["tables"]) if cp.has_section("tables") else {}
-        self.state = {"tracked": {}, "done_orders": []}
+        # Optional [kds] section enables the poller: orders placed on the
+        # vendor's own ordering app are read from the KDS and mirrored to ESB.
+        self.kds = None
+        self.kds_poll_seconds = 5
+        if cp.has_section("kds") and cp["kds"].get("base_url", "").strip():
+            self.kds = Kds(cp["kds"]["base_url"])
+            self.kds_poll_seconds = cp["kds"].getint("poll_seconds", 5)
+        # Optional [kds_menu_map]: KDS meal_id -> ESB menuCode. Unmapped meals
+        # fall back to exact meal_name match in ms_menu (resolve_menu).
+        self.kds_menu_map = dict(cp["kds_menu_map"]) if cp.has_section("kds_menu_map") else {}
+        self.state = {"tracked": {}, "done_orders": [], "kds_orders": {}}
         if self.state_path.exists():
             try:
                 self.state = json.loads(self.state_path.read_text())
             except Exception:
                 pass
+        self.state.setdefault("kds_orders", {})
 
     def save_state(self):
         self.state_path.write_text(json.dumps(self.state, indent=1))
@@ -215,10 +258,24 @@ class Agent:
         p = {"taxValue": 0.0, "additionalTaxValue": 0.0, "flagOtherTaxVat": 0,
              "orderFee": 0.0, "menuTemplateID": None}
         if self.db.columns("map_branchvisitpurpose"):
+            purpose = self.visit_purpose(mode)
             r = self.one(
                 "SELECT additionalTaxValue, flagOtherTaxVat, taxValue, orderFee, menuTemplateID "
                 "FROM map_branchvisitpurpose WHERE branchID = %s AND visitPurposeID = %s",
-                (self.branch_id(), self.visit_purpose(mode)))
+                (self.branch_id(), purpose))
+            if not r:
+                # This build has no map row for this visit purpose (seen live:
+                # only dine-in is mapped). Without it there is no menu template,
+                # and ms_menu.price can be 0 — every line would go in at 0.
+                # Degrade to the branch's existing purpose config and say so.
+                r = self.one(
+                    "SELECT additionalTaxValue, flagOtherTaxVat, taxValue, orderFee, menuTemplateID "
+                    "FROM map_branchvisitpurpose WHERE branchID = %s "
+                    "ORDER BY visitPurposeID LIMIT 1", (self.branch_id(),))
+                if r:
+                    print("[warn] no map_branchvisitpurpose row for purpose %s (%s) — "
+                          "using the branch's first mapped purpose for tax/prices"
+                          % (purpose, mode))
             if r:
                 p.update(taxValue=float(r["taxValue"] or 0),
                          additionalTaxValue=float(r["additionalTaxValue"] or 0),
@@ -474,17 +531,195 @@ class Agent:
                     and (head["billNum"] or head["salesDateOut"]))
             )
             if settled:
-                self.web.report(t["cmd_id"], "settled",
-                                billNum=head["billNum"],
-                                payment_method_name=self.payment_name(sales_num),
-                                detail="Cashier settled the bill on ESB POS (salesNum %s)" % sales_num)
-                del self.state["tracked"][sales_num]
-                self.save_state()
+                if t.get("source") == "kds":
+                    self.kds_settle(sales_num, t, head)
+                else:
+                    self.web.report(t["cmd_id"], "settled",
+                                    billNum=head["billNum"],
+                                    payment_method_name=self.payment_name(sales_num),
+                                    detail="Cashier settled the bill on ESB POS (salesNum %s)" % sales_num)
+                    del self.state["tracked"][sales_num]
+                    self.save_state()
             elif head["statusID"] in VOID_STATUS_IDS:
-                self.web.report(t["cmd_id"], "voided",
-                                detail="Voided on ESB POS (statusID %s)" % head["statusID"])
+                if t.get("source") == "kds":
+                    # No order-void endpoint on the KDS; staff handle it there.
+                    print("[kds] ESB voided %s (KDS order %s) — close it on the "
+                          "Hong Chiang side manually" % (sales_num, t.get("order_no")))
+                    self.kds_mark_done(t.get("order_no"))
+                else:
+                    self.web.report(t["cmd_id"], "voided",
+                                    detail="Voided on ESB POS (statusID %s)" % head["statusID"])
                 del self.state["tracked"][sales_num]
                 self.save_state()
+
+    # ------------------------------------------------- KDS poller (verified)
+    # Lifecycle facts from the vendor device (docs/vendor-samples/):
+    #   - the live reservation status string is exactly "SEATED"; its id is
+    #     the settle key; table.status stays IDLE and is never a busy signal
+    #   - one order per visit, created at seating; rounds APPEND rows (always
+    #     qty 1 per plate, row ids monotonic) — aggregate per meal_id
+    #   - reservations/update {id, COMPLETED, payment_method} closes the
+    #     reservation AND the order (next orders/details -> S00052)
+    #   - fresh orders have payment_method null; paid signal is never that
+    @staticmethod
+    def kds_payment_enum(name):
+        n = str(name or "").lower()
+        if not n or "cash" in n or "tunai" in n:
+            return "00"
+        if "unionpay" in n or "union pay" in n:
+            return "04"
+        if "instal" in n or "cicil" in n:
+            return "03"
+        if "bonus" in n or "point" in n:
+            return "02"
+        return "01"
+
+    def kds_recover_salesnum(self, order_no):
+        """After a restart with a lost state file, find our ESB sale again by
+        the idempotency marker so we never open a duplicate head."""
+        r = self.one("SELECT salesNum FROM tr_saleshead WHERE additionalInfo = %s "
+                     "ORDER BY salesDateIn DESC LIMIT 1", ("HC:" + order_no,))
+        return r["salesNum"] if r else None
+
+    def kds_mark_done(self, order_no):
+        st = self.state["kds_orders"].get(order_no)
+        if st is not None:
+            st["done"] = True
+            self.save_state()
+
+    def kds_mirror(self, order, meals, mode, res_id, table_name, guest_count):
+        no = order["order_no"]
+        st = self.state["kds_orders"].setdefault(no, {"last_row_id": 0, "salesNum": None,
+                                                      "mode": mode, "done": False})
+        if st.get("done"):
+            return
+        st["mode"] = mode
+        if res_id is not None:
+            st["res_id"] = res_id
+        if table_name is not None:
+            st["table_name"] = table_name
+
+        new_rows = [m for m in meals if int(m.get("id") or 0) > int(st["last_row_id"])]
+        if not new_rows and st.get("salesNum"):
+            return  # nothing new this cycle
+
+        if not st.get("salesNum"):
+            st["salesNum"] = self.kds_recover_salesnum(no)
+
+        cmd = {"mode": mode, "table_name": table_name, "pax": guest_count or self.pad_pax,
+               "note": "", "order_no": no}
+        if not st.get("salesNum"):
+            sales_num, attached = self.txn_a_open(cmd)
+            st["salesNum"] = sales_num
+            print("[kds] %s: %s — ESB %s (%s)"
+                  % (no, "attached to open head" if attached else "opened head (yellow)",
+                     sales_num, table_name or "takeaway"))
+
+        if new_rows:
+            # One row per plate, always qty 1 — aggregate per meal_id.
+            # price=0 on purpose: the ESB side bills by ITS OWN menu price
+            # (template per visit purpose), never by the KDS price/currency.
+            agg = {}
+            for m in new_rows:
+                key = m.get("meal_id")
+                a = agg.setdefault(key, {"menu_code": self.kds_menu_map.get(str(key), ""),
+                                         "menu_name": m.get("meal_name") or "",
+                                         "qty": 0, "price": 0, "notes": ""})
+                a["qty"] += max(1, int(float(m.get("quantity") or 1)))
+            cmd["items"] = list(agg.values())
+            batch = self.txn_b_save(cmd, st["salesNum"])
+            print("[kds] %s: +%d row(s) → %d line(s) into ESB batch %d (red)"
+                  % (no, len(new_rows), len(cmd["items"]), batch))
+            st["last_row_id"] = max(int(m.get("id") or 0) for m in new_rows)
+
+        self.state["tracked"][st["salesNum"]] = {
+            "source": "kds", "order_no": no, "mode": mode,
+            "res_id": st.get("res_id"), "cmd_id": None,
+        }
+        self.save_state()
+
+    def kds_poll(self):
+        # Dine-in: SEATED reservations mark live guest sessions; probe the
+        # order per table (S00052 = none, a normal state).
+        t = self.kds.call("tables/search", {})
+        if Kds.ok(t):
+            for table in t.get("data") or []:
+                live = [r for r in (table.get("reservations") or [])
+                        if (r.get("status") or "").upper() == "SEATED"]
+                od = self.kds.call("orders/details", {"table_id": table.get("id")})
+                if not Kds.ok(od):
+                    if Kds.code(od) not in ("S00052",):
+                        print("[kds] orders/details table %s: %s" % (table.get("id"), od))
+                    continue
+                data = od.get("data") or {}
+                order = data.get("order") or {}
+                if not order.get("order_no"):
+                    continue
+                res = live[0] if live else None  # newest first on the device
+                try:
+                    self.kds_mirror(order, data.get("order_meals") or [], "dinein",
+                                    res.get("id") if res else None,
+                                    table.get("name"),
+                                    res.get("guest_count") if res else None)
+                except Exception as e:
+                    print("[kds] mirror %s failed: %s" % (order.get("order_no"), e),
+                          file=sys.stderr)
+        else:
+            print("[kds] tables/search: %s" % t, file=sys.stderr)
+
+        # Walk-ins (takeout): open order numbers, details by order_id.
+        w = self.kds.call("walkIns/get", {})
+        if Kds.ok(w):
+            for no in ((w.get("data") or {}).get("order_nos") or []):
+                st = self.state["kds_orders"].get(no)
+                od = self.kds.call("orders/details", {"order_id": no})
+                if not Kds.ok(od):
+                    if Kds.code(od) not in ("S00052",):
+                        print("[kds] orders/details walkin %s: %s" % (no, od))
+                    continue
+                data = od.get("data") or {}
+                order = data.get("order") or {}
+                try:
+                    self.kds_mirror(order, data.get("order_meals") or [], "walkin",
+                                    None, None, None)
+                except Exception as e:
+                    print("[kds] mirror walkin %s failed: %s" % (no, e), file=sys.stderr)
+
+    def kds_settle(self, sales_num, t, head):
+        """ESB cashier finished the bill — close the session on the KDS side."""
+        if not self.kds:
+            return  # [kds] removed from config while entries were still tracked
+        enum = self.kds_payment_enum(self.payment_name(sales_num))
+        no = t.get("order_no")
+        if t.get("mode") == "dinein":
+            res_id = t.get("res_id")
+            if not res_id:
+                print("[kds] %s settled in ESB but no reservation id known — "
+                      "close it on the Hong Chiang side manually" % no)
+                self.kds_mark_done(no)
+                del self.state["tracked"][sales_num]
+                self.save_state()
+                return
+            resp = self.kds.call("reservations/update",
+                                 {"id": int(res_id), "status": "COMPLETED",
+                                  "payment_method": enum})
+        else:
+            resp = self.kds.call("walkIns/update",
+                                 {"order_no": no, "status": "paid",
+                                  "payment_method": enum})
+        if Kds.ok(resp):
+            confirmed = ""
+            data = resp.get("data")
+            if isinstance(data, dict) and data.get("order_number"):
+                confirmed = " (KDS confirmed order %s)" % data["order_number"]
+            print("[kds] %s settled: ESB %s → KDS closed, payment %s%s"
+                  % (no, sales_num, enum, confirmed))
+            self.kds_mark_done(no)
+            del self.state["tracked"][sales_num]
+            self.save_state()
+        else:
+            # Keep it tracked; retried next watch cycle.
+            print("[kds] settle-back for %s failed: %s" % (no, resp), file=sys.stderr)
 
     # ------------------------------------------------------------- main loop
     def process(self, cmd):
@@ -538,6 +773,12 @@ class Agent:
                 self.watch()
             except Exception as e:
                 print("[loop]", e, file=sys.stderr)
+            if self.kds:
+                # The KDS poller must keep mirroring even when midhong is down.
+                try:
+                    self.kds_poll()
+                except Exception as e:
+                    print("[kds-loop]", e, file=sys.stderr)
             time.sleep(self.poll_seconds)
 
     # ------------------------------------------------------------- menu sync
@@ -609,10 +850,17 @@ def main():
     ap.add_argument("--sync-menu", action="store_true")
     ap.add_argument("--sync-tables", action="store_true")
     ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--poll-once", action="store_true",
+                    help="one KDS poll + watch cycle (requires [kds] in agent.ini)")
     args = ap.parse_args()
     agent = Agent(args.config)
     if args.probe:
         agent.probe()
+    elif args.poll_once:
+        if not agent.kds:
+            sys.exit("no [kds] section in config")
+        agent.kds_poll()
+        agent.watch()
     elif args.sync_menu:
         agent.sync_menu()
     elif args.sync_tables:

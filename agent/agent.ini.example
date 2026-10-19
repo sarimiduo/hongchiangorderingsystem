@@ -22,3 +22,25 @@ poll_seconds = 5
 menu_sync_minutes = 10
 default_pax = 2
 state_file = agent_state.json
+
+; ---- optional: Hong Chiang table name -> ESB tableName (when they differ) ----
+;[tables]
+;A05 = 5
+
+; ---- optional: KDS POLLER ----
+; Set base_url to mirror orders placed on Hong Chiang's OWN ordering app into
+; ESB (the agent polls tables/search + orders/details, writes the same TXN A/B,
+; and when the cashier settles on ESB it closes the KDS order via
+; reservations/update / walkIns/update). Leave the section out (or base_url
+; empty) to disable the poller — the webapp bridge keeps working either way.
+;[kds]
+;base_url = http://192.168.100.200:5500/kds
+;poll_seconds = 5
+
+; ---- optional: KDS meal_id -> ESB menuCode ----
+; The KDS meal_id is vendor-assigned and read-only; map each one to the ESB
+; menuCode you set in ESB Core. Unmapped meals fall back to an exact
+; menuName match. Prices ALWAYS come from ESB (menu template), never the KDS.
+;[kds_menu_map]
+;380 = KDS-380
+;379 = KDS-379

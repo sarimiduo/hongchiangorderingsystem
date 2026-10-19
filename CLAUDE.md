@@ -45,7 +45,8 @@ public/img/            found, credited pictures + the footer clip (credits.json 
 public-mid/            midhong's standalone monitor page (served on midhong "/")
 test/                  node:test suites; test/journey.test.js boots both servers in-process
 agent/hc_bridge_agent.py  the mini-PC agent (PyMySQL). agent.ini is GITIGNORED (secrets)
-agent/README.md        agent setup (Windows Task Scheduler / Linux)
+agent/kds_stub.py      stateful KDS test double (replays verified device behavior; /ctl/* driver)
+agent/README.md        agent setup (Windows Task Scheduler / Linux) + KDS poller mode
 hermes/bot.js          Discord ⇄ agent bridge (this is how you are being driven)
 deploy/                nginx + systemd units (hongchiang = apphong, hongchiang-mid = midhong)
 docs/                  deep docs: DEPLOYMENT, VPS_GIT, HERMES_DISCORD,
@@ -266,6 +267,33 @@ Agent API — base is **midhong** (header `Authorization: Bearer <AGENT_TOKEN>`)
   (agent.ini, default 10, 0 = manual `--sync-menu` / `--sync-tables` only).
 - `POST /api/bridge/agent/heartbeat`
 
+KDS POLLER (agent 0.2.0, optional `[kds]` section in agent.ini): with
+`base_url` set the agent also mirrors orders placed on Hong Chiang's OWN
+ordering app into ESB — no webapp/midhong involvement, works when midhong is
+down (own try block in the run loop). Flow: tables/search → reservations
+filtered to status `SEATED` (newest first, take [0]) → orders/details
+{table_id} (S00052 = no order, skip silently); walkIns/get → orders/details
+{order_id: order_no}. New rows = id > last_row_id (plate rows are qty-1,
+append-only, monotonic ids) aggregated per meal_id → one ESB batch via the
+same txn_a_open/txn_b_save; items are sent with price 0 ON PURPOSE so
+resolve_menu prices from the ESB template — KDS currency is never trusted.
+Mapping: `[kds_menu_map]` meal_id → menuCode, fallback exact menuName.
+State: `state["kds_orders"][order_no] = {last_row_id, salesNum, mode, res_id,
+table_name, done}`; salesNum recovered from additionalInfo='HC:<no>' after a
+restart. Settle-back: watcher sees the ESB head paid → dine-in
+reservations/update {id: res_id, COMPLETED, enum} (verified: also closes the
+order; missing res_id → warn to close manually), walk-in walkIns/update
+{order_no, paid, enum}; payment name→enum map shared with midhong
+(cash/tunai→00, unionpay→04, instal/cicil→03, bonus/point→02, else 01).
+On KDS failure the order stays tracked and settle retries next cycle. Void in
+ESB → log + mark done (close on the KDS by hand). CLI: `--poll-once` runs one
+poll+watch cycle. tax_params degrades to the branch's FIRST mapped
+map_branchvisitpurpose row when the mode's purpose has no row (live builds may
+map only dine-in; without a template every line would write at price 0 since
+ms_menu.price can be 0). Tested end-to-end against agent/kds_stub.py + a real
+sushipos MariaDB: rounds→batches, name fallback, idempotent re-poll, dine-in
+and walk-in settle-back, restart recovery.
+
 Agent golden rules (inherited from the production Posmid replication middleware):
 1. MySQL **5.7-safe SQL only** (no CTEs/window functions). MariaDB test rigs
    accept more than real MySQL 5.7 — passing tests is not proof.
@@ -303,7 +331,10 @@ Discord bridge. The mini-PC agent package was handed to the owner with a filled
 agent.ini (token matches the VPS `.env` AGENT_TOKEN). Done: midhong split
 (stage 1, cashier-only) — bridge runs as its own service, apphong talks to it
 over HTTP, settlement comes back through the callback; `npm test` covers it
-(spec + plan in docs/superpowers/). VPS rollout of midhong (env vars, unit,
+(spec + plan in docs/superpowers/). Done: agent KDS poller (0.2.0) — orders
+from Hong Chiang's own app mirror into ESB and settle back (see Fact sheet 4);
+verified against kds_stub.py + real MariaDB; needs `[kds]`/`[kds_menu_map]`
+in the branch agent.ini to go live. VPS rollout of midhong (env vars, unit,
 nginx, certbot, agent.ini url) is an operator step — see docs/DEPLOYMENT.md §5.
 
 Open/likely asks:
