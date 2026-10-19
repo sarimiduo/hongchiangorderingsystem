@@ -28,3 +28,10 @@ Poller lifecycle contract (all strings verified on-device):
   orders/details {table_id} → order + meals = mirror to ESB (aggregate qty-1 rows)
   ESB cashier settles → bridge calls reservations/update {id, COMPLETED, payment_method}
   → next orders/details returns S00052 = loop closed; verify via response order_number
+
+## Takeout (walk-in) capture, same day
+
+`walkIns/get {}` → `{"status":true,"msg":"success","data":{"order_nos":["ORD20261019IQOIL6"]}}`
+— shape matches spec/mock exactly (array of open order numbers). Pending
+captures: orders/details by order_id for a walk-in, and the walkIns/update
+settle (expect the order_no to leave walkIns/get afterwards).
