@@ -36,6 +36,50 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const MENU = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'menu.json'), 'utf8'));
 const KDS_PATHS = new Set(['walkIns/get', 'tables/search', 'orders/details', 'reservations/update', 'walkIns/update']);
 
+/* ---------------------------------------------------- queue mode (counter pickup) */
+/* Walk-in orders get a daily queue number (Q-001…) for the counter board. The counter and the
+ * order_no → queue_no map live in a small runtime file so a restart keeps the day's numbers;
+ * the day rolls over on the branch's business date. The board reads the KDS walk-in queue and
+ * marks an order ready when the kitchen has every meal READY or SERVED. */
+const QUEUE_FILE = process.env.QUEUE_FILE || path.join(__dirname, '..', 'data', 'runtime', 'queue.json');
+const BUSINESS_TZ = process.env.BUSINESS_TZ || 'Asia/Jakarta';
+function businessDay() { return new Date().toLocaleDateString('en-CA', { timeZone: BUSINESS_TZ }); }
+function loadQueue() {
+  try { const q = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8')); if (q && q.date === businessDay() && q.orders) return q; } catch (e) { /* first run, or a new day */ }
+  return { date: businessDay(), next: 1, orders: {} };
+}
+let QUEUE = loadQueue();
+function saveQueue() {
+  try { fs.mkdirSync(path.dirname(QUEUE_FILE), { recursive: true }); fs.writeFileSync(QUEUE_FILE, JSON.stringify(QUEUE)); }
+  catch (e) { console.error('[queue] could not save the queue file:', e.message); }
+}
+function issueQueueNo(orderNo) {
+  if (QUEUE.date !== businessDay()) QUEUE = { date: businessDay(), next: 1, orders: {} };
+  const queueNo = 'Q-' + String(QUEUE.next++).padStart(3, '0');
+  QUEUE.orders[orderNo] = { queue_no: queueNo, created: Date.now() };
+  saveQueue();
+  return queueNo;
+}
+async function queueBoard() {
+  const open = await kds('walkIns/get', {});
+  if (!open.status) return { status: false, msg: open.msg, data: [] };
+  const rows = [];
+  for (const orderNo of open.data.order_nos || []) {
+    const d = await kds('orders/details', { order_id: String(orderNo) });
+    const meals = d.status ? d.data.order_meals : [];
+    const ready = meals.length > 0 && meals.every(m => m.status === 'READY' || m.status === 'SERVED');
+    const known = QUEUE.orders[orderNo] || {};
+    rows.push({
+      order_no: orderNo, queue_no: known.queue_no || null, created: known.created || null,
+      state: ready ? 'ready' : 'preparing',
+      total: d.status ? Number(d.data.order.total_price) : null,
+      items: meals.map(m => ({ meal_id: m.meal_id, name: m.meal_name, quantity: m.quantity, status: m.status })),
+    });
+  }
+  rows.sort((a, b) => (a.created || 0) - (b.created || 0));
+  return { status: true, msg: 'success', data: { date: QUEUE.date, orders: rows } };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -155,6 +199,8 @@ async function handleApi(req, res, url) {
   }
 
   // Save Order — creates the KDS order, then pushes it to midhong -> agent -> ESB POS.
+  if (req.method === 'GET' && route === 'queue') return send(res, 200, await queueBoard());
+
   if (req.method === 'POST' && route === 'checkout') {
     const body = await readBody(req);
     if (!Array.isArray(body.meals) || body.meals.length === 0) {
@@ -186,11 +232,13 @@ async function handleApi(req, res, url) {
       table_id: body.table_id, guest_count: body.guest_count,
       customer: body.customer || {}, note: body.note || '', meals,
     });
+    const queue_no = order.type === 'walkin' ? issueQueueNo(order.order_no) : null;
     const push = await bridgeClient.pushOrder({
       order_no: order.order_no,
       reservation_id: reservation ? reservation.id : null,
       mode: order.type,
       table_name: body.table_name || null,
+      queue_no,
       pax: body.guest_count,
       customer: body.customer || {},
       note: body.note || '',
@@ -205,6 +253,7 @@ async function handleApi(req, res, url) {
       data: {
         order_no: order.order_no, order_id: order.id,
         reservation_id: reservation ? reservation.id : null,
+        queue_no,
         total_price: order.total_price,
         local_only: KDS_MODE === 'real',
         bridge_pushed: push.pushed,

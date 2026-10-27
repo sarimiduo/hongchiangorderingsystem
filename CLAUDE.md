@@ -107,6 +107,16 @@ Rounds: every Save Order is one round of the visit (sessionStorage `hc_orders`, 
 table); the status screen lists them ("First order", "Second order"…) with the table total,
 and "Add another round" sends the guest back to the belt. Each round is its own KDS order
 and bridge command; the agent attaches it to the open ESB head as a new batch.
+Queue Mode (counter pickup, 2026-10-27): every walk-in checkout gets a daily queue number
+`Q-001…` from apphong (`issueQueueNo`, persisted in `data/runtime/queue.json` =
+`{date, next, orders{order_no:{queue_no, created}}}`, day = `BUSINESS_TZ`, default
+Asia/Jakarta; tests use `QUEUE_FILE` in tmp). It is returned by `/api/checkout`, carried on
+the bridge command (`queue_no` in status/overview, shown on the midhong monitor) and shown
+huge on the guest's status screen. `GET /api/queue` = the KDS walk-in queue with queue
+numbers and `state: preparing|ready` (ready = every meal READY/SERVED); `#/queue` is the
+public board for a TV at the counter (ready numbers in red), `#/takeout` the staff list.
+This is the app's number, not ESB's `queueNum`; orders leave the board when the cashier
+settles them (KDS status paid).
 The midhong monitor (`public-mid/index.html`, single file, same tokens) follows the direction
 "the product performs": the live ticket on the rail, an orders-by-hour chart, stage tabs +
 banded rows; `mid.js` serves `/img/*` from `public/img` so it reuses the credited pictures.

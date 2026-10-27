@@ -16,7 +16,7 @@
     :root {
       --bg: #ffffff; --surface: #ebebea; --surface-2: #dcdcda; --ink: #16140f; --muted: #4f4b45;
       --accent: #c62128; --accent-strong: #a3161d; --accent-ink: #ffffff;
-      --font-display: "Besley", "Noto Serif JP", Georgia, serif;
+      --font-display: "Besley", Georgia, serif;
       --font-text: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
       --step-small: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
       --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
@@ -248,7 +248,7 @@
 
     const hhmm = ms => { const d = new Date(ms); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); };
     const isToday = ms => new Date(ms).toDateString() === new Date().toDateString();
-    const where = c => c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout';
+    const where = c => c.mode === 'dinein' ? 'Dine-in, table ' + esc(c.table_name || '?') : 'Takeout' + (c.queue_no ? ', queue ' + esc(c.queue_no) : '');
 
     function ticketHTML(c) {
       if (!c) return '<p class="empty">Nothing on the rail yet. The first order from the app will appear here.</p>';
@@ -256,7 +256,7 @@
       const ended = c.stage === 'voided' || c.stage === 'error';
       const last = c.events[c.events.length - 1];
       return `
-        <div class="t-head"><span class="t-num nums">${esc(c.mode === 'dinein' ? (c.table_name || '?') : String(c.order_no).slice(-4))}</span>
+        <div class="t-head"><span class="t-num nums">${esc(c.mode === 'dinein' ? (c.table_name || '?') : (c.queue_no || String(c.order_no).slice(-4)))}</span>
           <span class="t-meta"><b>${esc(c.order_no)}</b>${where(c)}<br>${c.items} ${c.items === 1 ? 'dish' : 'dishes'}, ${fmt(c.total)}</span></div>
         <ol class="track">${STAGES.map((s, i) => `<li class="${at > i || ended ? 'done' : ''}${at === i ? ' now' : ''}">${s[1]}</li>`).join('')}</ol>
         <div class="t-foot">
