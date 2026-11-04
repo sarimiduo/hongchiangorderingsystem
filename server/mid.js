@@ -127,6 +127,7 @@ async function handleApi(req, res, url) {
       reservation_id: body.reservation_id == null ? null : Number(body.reservation_id),
       mode: body.mode,
       table_name: body.table_name || null,
+      queue_no: body.queue_no ? String(body.queue_no) : null,
       pax: Number(body.pax) || 1,
       customer: body.customer || {},
       note: String(body.note || ''),

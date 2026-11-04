@@ -7,6 +7,8 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const net = require('net');
+const os = require('os');
+const path = require('path');
 
 function freePort() {
   return new Promise(r => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
@@ -30,6 +32,7 @@ before(async () => {
     KDS_MODE: 'mock', BRIDGE_SIM: '0', PORT: String(appPort), MID_PORT: String(midPort),
     BRIDGE_URL: `http://127.0.0.1:${midPort}`, APP_URL: `http://127.0.0.1:${appPort}`,
     BRIDGE_TOKEN: 't-bridge', AGENT_TOKEN: 't-agent',
+    QUEUE_FILE: path.join(os.tmpdir(), `hc-queue-test-${process.pid}.json`), // never the live counter
   });
   T.APP = process.env.APP_URL; T.MID = process.env.BRIDGE_URL;
 });
@@ -185,6 +188,25 @@ test('apphong with midhong down: checkout succeeds, status shows pending_push, p
     const unknown = await j(`${APP}/api/bridge/status?order_no=NOPE`);
     assert.equal(unknown.code, 503);
   } finally { child.kill(); }
+});
+
+test('queue mode: walk-in orders get a daily queue number, /api/queue lists them for the board', async () => {
+  const menu = (await j(`${T.APP}/api/menu`)).body;
+  const meals = [{ meal_id: menu.meals[0].meal_id, quantity: 1 }];
+  const a = await post(`${T.APP}/api/checkout`, { type: 'walkin', guest_count: 1, meals });
+  const b = await post(`${T.APP}/api/checkout`, { type: 'walkin', guest_count: 1, meals });
+  assert.match(a.body.data.queue_no, /^Q-\d{3}$/);
+  assert.equal(Number(b.body.data.queue_no.slice(2)), Number(a.body.data.queue_no.slice(2)) + 1, 'numbers increment');
+  const dine = await post(`${T.APP}/api/checkout`, { type: 'dinein', table_id: 10, table_name: '1', guest_count: 2, meals });
+  assert.equal(dine.body.data.queue_no, null, 'dine-in has no queue number');
+  const q = await j(`${T.APP}/api/queue`);
+  assert.equal(q.code, 200); assert.equal(q.body.status, true);
+  const row = q.body.data.orders.find(o => o.order_no === a.body.data.order_no);
+  assert.ok(row, 'the order is on the board');
+  assert.equal(row.queue_no, a.body.data.queue_no); assert.equal(row.state, 'preparing');
+  assert.ok(row.items.length >= 1 && row.items[0].status === 'PREPARING');
+  const st = await j(`${T.MID}/api/bridge/status?order_no=${a.body.data.order_no}`);
+  assert.equal(st.body.queue_no, a.body.data.queue_no, 'midhong keeps the queue number on the command');
 });
 
 // ------------------------------------------------------------ full journeys

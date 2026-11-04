@@ -17,7 +17,8 @@
   --plate-black: #16140f;
   --plate-gold: #c99a2e;
 
-  --font-display: "Besley", "Noto Serif JP", Georgia, "Times New Roman", serif;
+  /* the CJK face is applied only where Japanese is set ([lang="ja"], .zh): listed in the stack it inflates every line box */
+  --font-display: "Besley", Georgia, "Times New Roman", serif;
   --font-text: "Libre Franklin", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   --step-small: clamp(0.875rem, 0.85rem + 0.1vw, 0.9375rem);
@@ -361,6 +362,20 @@ button.block:active { transform: scale(0.98); }
 .kitchen.plated .plate { width: 36px; height: 12px; }
 .round .rstage { margin-top: 12px; font-weight: 600; min-height: 1.5em; }
 .slip .earlier { margin: 4px 0 12px; }
+
+/* ---------- queue board (a TV at the counter) ---------- */
+.board { min-height: 100svh; background: var(--bg); padding: clamp(16px, 2vw, 32px) var(--margin) 24px; display: grid; grid-template-rows: auto 1fr auto; gap: 20px; }
+.board .wait { font-size: var(--step-body); }
+.board-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; }
+.board-cols { display: grid; grid-template-columns: 1fr; gap: var(--frame); }
+.board-col { background: var(--surface); padding: clamp(16px, 2vw, 32px); display: grid; grid-template-rows: auto 1fr; gap: 20px; align-content: start; }
+.board-col .lead-h { font-size: var(--step-head); line-height: 1; letter-spacing: -0.025em; }
+.board-col.is-ready { background: var(--ink); color: var(--bg); }
+.board-col.is-ready .wait { color: var(--bg); }
+.qnums { display: flex; flex-wrap: wrap; gap: 16px 28px; align-content: start; }
+.qn { font-family: var(--font-display); font-weight: 800; font-size: clamp(3rem, 7vw, 8rem); line-height: 0.95; letter-spacing: -0.03em; }
+.qn.on { color: var(--accent); }
+@media (min-width: 900px) { .board-cols { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- dialogs (they float, so they may cast a shadow) ---------- */
 .mask { position: fixed; inset: 0; z-index: 60; background: rgba(22, 20, 15, 0.55); display: flex; align-items: flex-end; justify-content: center; }

@@ -193,7 +193,7 @@ function footer() {
     <img class="foot-img" src="/img/sushi-train-poster.jpg" width="1280" height="720" alt="" loading="lazy" decoding="async">
     <video autoplay muted loop playsinline preload="metadata" poster="/img/sushi-train-poster.jpg" width="854" height="480" aria-hidden="true"><source src="/img/sushi-train.webm" type="video/webm"></video>
     <div class="foot-top">
-      <nav aria-label="Pages"><a href="#/tables">Dine-in</a><a href="#/menu?mode=walkin">Takeout</a><a href="#/takeout">Takeout board</a><a href="#/bridge">Bridge monitor</a></nav>
+      <nav aria-label="Pages"><a href="#/tables">Dine-in</a><a href="#/menu?mode=walkin">Takeout</a><a href="#/queue">Queue board</a><a href="#/takeout">Takeout board</a><a href="#/bridge">Bridge monitor</a></nav>
       <p>${esc(hours())}<br>Pay by the plate at the counter</p>
     </div>
     <div>
@@ -207,6 +207,7 @@ function footer() {
 const routes = {
   '': renderHome, home: renderHome, tables: renderTables, menu: renderMenu,
   cart: renderCart, status: renderStatus, takeout: renderTakeout, bridge: renderBridge,
+  queue: renderQueue,
 };
 function go(r) { location.hash = '#/' + r; }
 function cleanup() {
@@ -267,7 +268,7 @@ function renderHome() {
           <dl class="facts">
             <div><dt>Hours</dt><dd>${esc(hours())}</dd></div>
             <div><dt>Plates</dt><dd>${platePrices()}</dd></div>
-            <div><dt>Takeout</dt><dd><a href="#/menu?mode=walkin">Order and collect at the counter</a></dd></div>
+            <div><dt>Takeout</dt><dd><a href="#/menu?mode=walkin">Order without a table</a>, get a queue number, and watch <a href="#/queue">the counter board</a></dd></div>
             <div><dt>Floor plan</dt><dd><a href="#/tables">Pick a table from the list</a></dd></div>
           </dl>
         </section>
@@ -646,7 +647,7 @@ async function saveOrder() {
   const round = {
     order_no: out.data.order_no, reservation_id: out.data.reservation_id,
     mode: S.session.mode, table: S.session.table, paid: false, total: cartTotal(), plates: plateCounts(S.cart),
-    created: Date.now(),
+    queue_no: out.data.queue_no || null, created: Date.now(),
     items: S.cart.map(i => {
       const m = mealById(i.meal_id);
       return { meal_id: i.meal_id, name: m.short_name, qty: i.qty, plate: plateOf(m), options: Object.values(i.options || {}).flat().join(', ') };
@@ -682,14 +683,14 @@ async function renderStatus(q) {
   if (want && !rounds.some(r => r.order_no === want)) {
     const st = await api('bridge/status?order_no=' + encodeURIComponent(want));
     if (st && st.stage) {
-      rounds = [{ order_no: want, mode: st.mode, table: st.table_name ? { name: st.table_name } : null, paid: st.stage === 'settled', total: Number(st.total) || 0, created: Date.now() }];
+      rounds = [{ order_no: want, mode: st.mode, table: st.table_name ? { name: st.table_name } : null, queue_no: st.queue_no || null, paid: st.stage === 'settled', total: Number(st.total) || 0, created: Date.now() }];
       S.orders = rounds; S.lastOrder = rounds[0]; save();
     }
   }
   if (!rounds.length) { go('home'); return; }
   const o = rounds[rounds.length - 1];
   const dinein = o.mode === 'dinein' && o.table;
-  const call = String(o.order_no).slice(-4);
+  const call = o.queue_no || String(o.order_no).slice(-4);
   const total = rounds.reduce((s, r) => s + (r.total || 0), 0);
   const plates = {};
   rounds.forEach(r => Object.entries(r.plates || {}).forEach(([c, n]) => { plates[c] = (plates[c] || 0) + n; }));
@@ -700,7 +701,7 @@ async function renderStatus(q) {
       <section class="sheet cashier">
         <div data-rise style="--i:0">${topnav(`<a class="back" href="#/">Home</a>`, `<span></span>`)}</div>
         <h1 class="display nums" data-rise style="--i:1">${esc(dinein ? o.table.name : call)}</h1>
-        <p class="lead" data-rise style="--i:2">${dinein ? `Table 卓 ${esc(o.table.name)}<br><span class="muted">${rounds.length === 1 ? 'Order ' + esc(o.order_no) : rounds.length + ' orders from this table'}</span>` : `Takeout 持ち帰り, order ${esc(o.order_no)}<br><span class="muted">Collect at the counter when ${esc(call)} is called</span>`}</p>
+        <p class="lead" data-rise style="--i:2">${dinein ? `Table 卓 ${esc(o.table.name)}<br><span class="muted">${rounds.length === 1 ? 'Order ' + esc(o.order_no) : rounds.length + ' orders from this table'}</span>` : `${o.queue_no ? 'Your number on the board' : 'Takeout 持ち帰り'}<br><span class="muted">${o.queue_no ? 'Order ' + esc(o.order_no) + '. Watch the counter board; collect when your number is called.' : 'Order ' + esc(o.order_no) + '. Collect at the counter when ' + esc(call) + ' is called.'}</span>`}</p>
         <p class="total head nums" data-rise style="--i:3">${fmt(total)}</p>
         ${Object.keys(plates).length ? `<div class="plates" data-rise style="--i:4">${stackHTML(plates)}${stackSummary(plates)}</div>` : ''}
         <p class="msg" id="cc-msg" data-rise style="--i:5">${rounds.every(r => r.paid) ? 'Finished, paid.' : 'Pay at the counter. Show this screen to the cashier; the plates are counted by colour.'}</p>
@@ -759,6 +760,7 @@ async function renderStatus(q) {
     const out = await api('kds/orders/details', { order_id: r.order_no });
     const box = document.getElementById('k-' + r.order_no);
     if (!box || !out.status) return;
+    r.ready = out.data.order_meals.length > 0 && out.data.order_meals.every(m => m.status === 'READY' || m.status === 'SERVED');
     box.innerHTML = out.data.order_meals.map(m => {
       const meal = mealById(m.meal_id);
       return `<li>${meal ? plateHTML(plateOf(meal)) : '<span></span>'}<span>${m.quantity} × ${esc(meal ? meal.short_name : m.meal_name)}${m.remarks ? `<span class="op">${esc(m.remarks)}</span>` : ''}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`;
@@ -767,9 +769,40 @@ async function renderStatus(q) {
   async function poll() {
     await Promise.all(rounds.map(pollRound));
     markAllPaid();
+    const msg = document.getElementById('cc-msg');
+    if (msg && o.mode === 'walkin' && !rounds.every(r => r.paid) && rounds.every(r => r.ready)) msg.textContent = 'Ready. Collect at the counter and pay there.';
   }
   poll();
   S.timers.push(setInterval(poll, 5000));
+}
+
+/* ------------------------------------------------------------- queue board */
+/* Queue Mode: the counter's public screen (a TV). Every open walk-in order with its queue number;
+ * the ones the kitchen has finished move to the left in red and are called from there. */
+async function renderQueue() {
+  $app.innerHTML = `
+    <div class="board">
+      <div class="board-top">${WORDMARK}</div>
+      <div class="board-cols">
+        <section class="board-col is-ready" aria-labelledby="q-ready-h"><h1 class="lead-h" id="q-ready-h">Ready, collect at the counter</h1><ul class="qnums" id="q-ready"><li class="wait">Asking the kitchen display…</li></ul></section>
+        <section class="board-col" aria-labelledby="q-prep-h"><h1 class="lead-h" id="q-prep-h">Being prepared</h1><ul class="qnums" id="q-prep"></ul></section>
+      </div>
+      <p class="muted" id="board-day"></p>
+    </div>`;
+  const label = r => r.queue_no || String(r.order_no).slice(-4);
+  async function paint() {
+    const out = await api('queue');
+    const ready = document.getElementById('q-ready'), prep = document.getElementById('q-prep');
+    if (!ready) return;
+    if (!out.status) { ready.innerHTML = `<li class="wait">The kitchen display did not answer (${esc(out.msg)}).</li>`; return; }
+    const rows = out.data.orders;
+    document.getElementById('board-day').textContent = `Numbers for ${out.data.date}. Pay at the counter when you collect.`;
+    const list = (arr, cls) => arr.length ? arr.map(r => `<li class="qn ${cls}">${esc(label(r))}</li>`).join('') : '<li class="wait">Nothing right now.</li>';
+    ready.innerHTML = list(rows.filter(r => r.state === 'ready'), 'on');
+    prep.innerHTML = list(rows.filter(r => r.state !== 'ready'), '');
+  }
+  paint();
+  S.timers.push(setInterval(paint, 5000));
 }
 
 /* ---------------------------------------------------------- bridge monitor */
@@ -824,29 +857,19 @@ async function renderTakeout() {
       </section>
     </div>`;
   startCrossfade(document.querySelector('.still .photos'));
-  const out = await api('kds/walkIns/get', {});
+  const out = await api('queue');
   const list = document.getElementById('tk-list');
   if (!list) return;
   if (!out.status) { list.innerHTML = `<p class="wait">The kitchen display did not answer (${esc(out.msg)}).</p>`; return; }
-  const nos = out.data.order_nos || [];
-  list.innerHTML = nos.length === 0 ? '<p class="wait">No open takeout orders.</p>'
-    : nos.map((n, i) => `<button class="block" data-no="${esc(n)}" data-reveal style="--i:${i}"><div class="ln" data-reveal style="--i:${i + 1}"><b data-reveal style="--i:${i + 2}">${esc(String(n).slice(-4))}</b><span>${esc(n)}</span></div></button>`).join('');
+  const rows = out.data.orders;
+  list.innerHTML = rows.length === 0 ? '<p class="wait">No open takeout orders.</p>'
+    : rows.map((r, i) => `<div class="block" data-reveal style="--i:${i}">
+        <div class="ln" data-reveal style="--i:${i + 1}"><b data-reveal style="--i:${i + 2}">${esc(r.queue_no || String(r.order_no).slice(-4))}</b><span class="st ${r.state === 'ready' ? 'st-READY' : ''}">${r.state === 'ready' ? 'Ready, call it' : 'Being prepared'}</span></div>
+        <div class="ln muted"><span>${esc(r.order_no)}</span><span>${r.total != null ? fmt(r.total) : ''}</span></div>
+        <ul class="kitchen">${r.items.map(m => `<li><span>${m.quantity} × ${esc(m.name)}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`).join('')}</ul>
+      </div>`).join('');
   reveal(list);
-  list.onclick = async e => {
-    const b = e.target.closest('[data-no]'); if (!b) return;
-    const d = await api('kds/orders/details', { order_id: b.dataset.no });
-    const box = document.getElementById('tk-detail');
-    if (!d.status) { box.innerHTML = `<p class="wait">No details (${esc(d.msg)}).</p>`; return; }
-    const ord = d.data.order;
-    box.innerHTML = `
-      <section class="status-sec">
-        <h2 class="lead-h">${esc(ord.order_no)}</h2>
-        <ul class="kitchen">${d.data.order_meals.map(m => `<li><span>${m.quantity} × ${esc(m.meal_name)}</span><span class="st st-${esc(m.status)}">${esc(word(m.status))}</span></li>`).join('')}
-          <li><span>Order</span><span class="st st-${esc(ord.status)}">${esc(word(ord.status))}, ${fmt(Number(ord.total_price))}</span></li></ul>
-        <p class="small muted">Settled by the cashier on the ESB till.</p>
-      </section>`;
-    box.scrollIntoView({ behavior: CALM.matches ? 'auto' : 'smooth', block: 'start' });
-  };
+  document.getElementById('tk-detail').innerHTML = rows.length ? '<p class="muted" style="margin-top:16px">Orders leave this list when the cashier settles them on the ESB till. The public board is at <a class="link-plain" href="#/queue">/#/queue</a>.</p>' : '';
 }
 
 /* -------------------------------------------------------------------- boot */

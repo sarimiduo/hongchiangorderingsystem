@@ -162,3 +162,12 @@ each round as its own panel ("First order, 10:42", lines with the kitchen's word
 round), the till steps for the latest round, "Add another round" until every round is settled. The bridge
 attaches later rounds to the same ESB head as a new batch (golden rule 4), so nothing changed server-side.
 Verified with a scripted Chrome run (two rounds on table 5): screenshots in `.taste-skill/rounds/`.
+
+## Queue Mode (counter pickup), 2026-10-27
+Reading of a two-word brief: guests without a table get a queue number and a board at the counter calls it. The
+number is issued by apphong at checkout (Q-001… per business day), the status screen shows it at display size
+("Your number on the board"), the message flips to "Ready. Collect at the counter and pay there." when the kitchen
+has every plate ready, and `#/queue` is the board: two fields, "Ready, collect at the counter" (ink field, numbers
+in red) and "Being prepared" (surface), numbers in Besley at up to 8rem for a TV, refreshed every 5 s. The staff
+takeout board lists the same rows with their lines. Nothing changes for the agent; the number also rides on the
+bridge command so the monitor shows it.

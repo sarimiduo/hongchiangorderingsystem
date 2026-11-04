@@ -69,6 +69,7 @@ function enqueueOrder(ctx) {
     reservation_id: ctx.reservation_id,     // for dine-in KDS feedback
     mode: ctx.mode,                         // 'dinein' | 'walkin'
     table_name: ctx.table_name || null,
+    queue_no: ctx.queue_no || null,         // counter pickup number (walk-in), shown on the board
     pax: ctx.pax || 1,
     customer: ctx.customer || {},
     note: ctx.note || '',
@@ -209,7 +210,7 @@ function statusFor(orderNo) {
   if (!c) return null;
   return {
     id: c.id, order_no: c.order_no, stage: c.stage, simulated: c.simulated,
-    mode: c.mode, reservation_id: c.reservation_id, table_name: c.table_name, total: c.total,
+    mode: c.mode, reservation_id: c.reservation_id, table_name: c.table_name, queue_no: c.queue_no || null, total: c.total,
     salesNum: c.salesNum, billNum: c.billNum, payment_method: c.payment_method,
     callback: c.callback || null, pending_push: false,
     error: c.error, events: c.events, agent_live: isAgentLive(),
@@ -223,7 +224,7 @@ function overview() {
     esb_menu: state.esbMenu ? { synced_at: state.esbMenu.synced_at, meals: state.esbMenu.meals.length } : null,
     esb_tables: state.esbTables ? { synced_at: state.esbTables.synced_at, tables: state.esbTables.tables.length } : null,
     commands: [...state.commands].reverse().slice(0, 50).map(c => ({
-      id: c.id, order_no: c.order_no, mode: c.mode, table_name: c.table_name,
+      id: c.id, order_no: c.order_no, mode: c.mode, table_name: c.table_name, queue_no: c.queue_no || null,
       total: c.total, stage: c.stage, simulated: c.simulated,
       salesNum: c.salesNum, billNum: c.billNum, payment_method: c.payment_method,
       callback: c.callback || null,
