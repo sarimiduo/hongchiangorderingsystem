@@ -312,6 +312,11 @@ and walk-in settle-back, restart recovery.
 
 ## Fact sheet 5 — quehong walk-in queue (que/, 2026-11-04)
 
+NOT the same thing as apphong's "Queue Mode" (counter pickup numbers for
+takeout orders, `Q-001` with a dash, above): quehong is the pre-seating
+WAITING LINE at the door (`Q001`, no dash). They coexist; renumber one if
+guests ever confuse them.
+
 Separate product sharing the repo + mini-PC: tablet registration → TM-T82X
 prints ONE roll with TWO native QRs (QR Queue = quehong.berkatselalu.com
 /q/<20-hex token>, same QR works for the phone landing page AND the USB
