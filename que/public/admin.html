@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Que Admin — Edo Sushi</title>
+<style>
+:root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
+* { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
+body { background:var(--surface); color:var(--ink); padding:16px; }
+h1 { font-size:20px; font-weight:800; margin-bottom:12px; }
+h1 small { color:var(--muted); font-weight:400; font-size:13px; margin-left:10px; }
+.cols { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.col { background:var(--ground); border:1px solid #ddd; padding:10px; min-height:160px; }
+.col h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:8px; }
+.card { border:1px solid #ddd; padding:8px; margin-bottom:8px; }
+.card .n { font-weight:800; font-size:18px; }
+.card .n em { color:var(--accent); font-style:normal; font-size:12px; margin-left:6px; }
+.card .meta { color:var(--muted); font-size:12px; margin:2px 0 6px; }
+.card button { font-size:11px; padding:4px 7px; margin:2px 2px 0 0; border:1px solid #bbb; background:var(--ground); cursor:pointer; }
+.card button:hover { background:var(--ink); color:#fff; }
+.tables { background:var(--ground); border:1px solid #ddd; padding:10px; }
+.tgrid { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.tgrid button { width:52px; height:40px; border:1px solid #bbb; font-weight:700; cursor:pointer; background:#fff; }
+.tgrid .busy, .tgrid .manual { background:#d8d8d6; }
+.tgrid .held { background:#f4d9a8; }
+.tgrid .seated { background:#f7c4c3; }
+.tgrid .manual { outline:2px solid var(--ink); }
+.hint { color:var(--muted); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>Antrian — Admin <small id="meta"></small></h1>
+<div class="cols">
+  <div class="col"><h2>Menunggu / Waiting</h2><div id="waiting"></div></div>
+  <div class="col"><h2>Dipanggil / Called</h2><div id="called"></div></div>
+  <div class="col"><h2>Terlewat / Pending</h2><div id="pending"></div></div>
+  <div class="col"><h2>Duduk / Seated</h2><div id="seated"></div></div>
+</div>
+<div class="tables">
+  <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Meja (klik = tandai terisi/kosong manual)</h2>
+  <div class="tgrid" id="tgrid"></div>
+  <div class="hint">putih kosong · kuning dipanggil · merah muda baru duduk · abu terisi (ESB) · garis tebal = manual. Klik meja untuk toggle manual busy / bebaskan.</div>
+</div>
+<script>
+let PIN = localStorage.getItem('que_pin') || '';
+while (!PIN) { PIN = prompt('Admin PIN'); }
+localStorage.setItem('que_pin', PIN);
+
+async function act(op, arg) {
+  const r = await fetch('/api/que/admin', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-que-pin': PIN },
+    body: JSON.stringify({ op, arg }),
+  }).then(r => r.json());
+  if (r.msg === 'bad pin') { localStorage.removeItem('que_pin'); location.reload(); }
+  refresh();
+}
+
+function card(t, buttons) {
+  const wa = t.wa_verified ? ' · WA ok' : '';
+  return `<div class="card"><div class="n">${t.disp}${t.split ? '<em>SPLIT</em>' : ''}</div>` +
+    `<div class="meta">${t.name || '-'} · ${t.pax} pax${wa}${t.tables && t.tables.length ? ' · meja ' + t.tables.join(',') : ''}` +
+    (t.wait_left != null ? ' · sisa ' + Math.ceil(t.wait_left / 1000) + 's' : '') + `</div>` +
+    buttons.map(([lbl, op]) => `<button onclick="act('${op}','${t.token}')">${lbl}</button>`).join('') + `</div>`;
+}
+
+async function refresh() {
+  const o = await (await fetch('/api/que/overview')).json();
+  document.getElementById('meta').textContent =
+    `${o.day} · terakhir dipanggil Q${String(o.last_called || 0).padStart(3, '0')} · WA outbox ${o.outbox_depth}`;
+  document.getElementById('waiting').innerHTML = o.waiting.map(t => card(t, [['batal', 'cancel'], ['reprint', 'reprint']])).join('');
+  document.getElementById('called').innerHTML = o.called.filter(t => t.state === 'called')
+    .map(t => card(t, [['duduk', 'seated'], ['lewati', 'pending'], ['batal', 'cancel']])).join('');
+  document.getElementById('pending').innerHTML = o.pending.map(t => card(t, [['antri lagi', 'requeue'], ['batal', 'cancel'], ['reprint', 'reprint']])).join('');
+  document.getElementById('seated').innerHTML = o.called.filter(t => t.state === 'seated')
+    .map(t => card(t, [['selesai', 'finish']])).join('');
+  document.getElementById('tgrid').innerHTML = o.tables.map(t =>
+    `<button class="${t.status}" title="${t.capacity} pax${t.held_by ? ' — ' + t.held_by : ''}" ` +
+    `onclick="act('${t.status === 'manual' || t.status === 'busy' || t.status === 'seated' || t.status === 'held' ? 'table-free' : 'table-busy'}','${t.id}')">${t.id}</button>`).join('');
+}
+refresh();
+setInterval(refresh, 2500);
+const es = new EventSource('/api/que/events');
+es.onmessage = () => refresh();
+</script>
+</body>
+</html>

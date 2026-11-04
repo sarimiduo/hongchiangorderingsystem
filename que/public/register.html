@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Daftar Antrian — Edo Sushi</title>
+<style>
+:root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
+* { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
+body { background:var(--surface); color:var(--ink); min-height:100vh; display:grid; place-items:center; padding:24px; }
+.card { background:var(--ground); width:min(560px,100%); padding:40px 36px; border:1px solid #ddd; }
+h1 { font-size:26px; font-weight:800; letter-spacing:-.01em; margin-bottom:4px; }
+.sub { color:var(--muted); font-size:14px; margin-bottom:28px; }
+label { display:block; font-size:13px; color:var(--muted); margin:18px 0 6px; }
+input { width:100%; font-size:22px; padding:14px 16px; border:1px solid #ccc; background:var(--ground); color:var(--ink); }
+input:focus { outline:2px solid var(--ink); }
+.pax { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.pax button { font-size:22px; padding:16px 0; border:1px solid #ccc; background:var(--ground); cursor:pointer; }
+.pax button.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+.go { width:100%; margin-top:30px; font-size:20px; font-weight:700; padding:18px; background:var(--accent); color:#fff; border:0; cursor:pointer; }
+.go:disabled { opacity:.4; }
+.notice { margin-top:18px; padding:14px 16px; background:var(--surface); font-size:14px; line-height:1.5; display:none; }
+.done { text-align:center; display:none; }
+.done .num { font-size:96px; font-weight:800; color:var(--accent); line-height:1.1; margin:18px 0 6px; }
+.done p { font-size:15px; line-height:1.6; margin-top:10px; }
+.done .warn { background:var(--surface); padding:14px; text-align:left; }
+.err { color:var(--accent); margin-top:12px; font-size:14px; display:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <form id="form">
+    <h1>Daftar Antrian</h1>
+    <div class="sub">Join the waiting list — Edo Sushi</div>
+    <label>Nama / Name</label>
+    <input id="name" autocomplete="off" maxlength="40">
+    <label>Nomor WhatsApp (contoh 0812…)</label>
+    <input id="wa" inputmode="tel" autocomplete="off" maxlength="18" placeholder="08…">
+    <label>Jumlah tamu / Pax</label>
+    <div class="pax" id="pax"></div>
+    <div class="notice" id="bignote">
+      Untuk rombongan besar tanpa reservasi, mohon maaf — kami akan menempatkan
+      rombongan Anda di meja yang tersedia, sehingga Anda mungkin tidak duduk
+      berdekatan dengan keluarga/teman Anda. Terima kasih atas pengertiannya.<br><br>
+      <em>For large walk-in groups we seat you at available tables, so your group
+      may be split up. Thank you for understanding.</em>
+    </div>
+    <button class="go" id="go" type="submit">Ambil Nomor / Get a number</button>
+    <div class="err" id="err"></div>
+  </form>
+  <div class="done" id="done">
+    <h1>Nomor antrian Anda</h1>
+    <div class="num" id="num"></div>
+    <p id="pos"></p>
+    <p>Silakan ambil struk Anda di printer.<br>Pindai <b>QR WhatsApp</b> lalu kirim pesannya agar kami
+    bisa mengabari giliran Anda.<br><em>Take your printed ticket; scan the WhatsApp QR and send
+    the message so we can notify you.</em></p>
+    <p class="warn" id="donewarn" style="display:none"></p>
+  </div>
+</div>
+<script>
+const paxEl = document.getElementById('pax');
+let pax = 2;
+for (let i = 1; i <= 12; i++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = i;
+  b.onclick = () => { pax = i; render(); };
+  paxEl.appendChild(b);
+}
+function render() {
+  [...paxEl.children].forEach((b, i) => b.classList.toggle('on', i + 1 === pax));
+  document.getElementById('bignote').style.display = pax > 4 ? 'block' : 'none';
+}
+render();
+document.getElementById('form').onsubmit = async e => {
+  e.preventDefault();
+  const go = document.getElementById('go'); go.disabled = true;
+  try {
+    const r = await fetch('/api/que/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.value.trim(), wa: wa.value.trim(), pax }),
+    });
+    const j = await r.json();
+    if (!j.status) throw new Error(j.msg || 'failed');
+    document.getElementById('form').style.display = 'none';
+    const d = document.getElementById('done'); d.style.display = 'block';
+    document.getElementById('num').textContent = j.data.disp;
+    document.getElementById('pos').textContent =
+      j.data.position + ' antrian di depan Anda / ' + j.data.position + ' group(s) ahead of you';
+    if (j.data.split) {
+      const w = document.getElementById('donewarn'); w.style.display = 'block';
+      w.textContent = 'Rombongan besar: tempat duduk Anda mungkin terpisah sesuai meja yang tersedia. / Large group: your seats may be split across available tables.';
+    }
+    if (!j.data.printed) alert('Printer bermasalah — mohon panggil staf / printer problem, please call staff');
+    setTimeout(() => location.reload(), 20000);
+  } catch (err) {
+    const el = document.getElementById('err');
+    el.style.display = 'block'; el.textContent = 'Gagal: ' + err.message + ' — coba lagi / failed, try again';
+    go.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

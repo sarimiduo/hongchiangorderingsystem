@@ -221,6 +221,13 @@ class Agent:
         # Optional [kds_menu_map]: KDS meal_id -> ESB menuCode. Unmapped meals
         # fall back to exact meal_name match in ms_menu (resolve_menu).
         self.kds_menu_map = dict(cp["kds_menu_map"]) if cp.has_section("kds_menu_map") else {}
+        # Optional [que] section: push the live busy-table list to the quehong
+        # walk-in queue server (same mini-PC) so it seats guests on real
+        # ESB occupancy. url = http://127.0.0.1:3200
+        self.que_url = (cp["que"].get("url", "").strip().rstrip("/")
+                        if cp.has_section("que") else "")
+        self._que_last_busy = None
+        self._que_last_push = 0.0
         self.state = {"tracked": {}, "done_orders": [], "kds_orders": {}}
         if self.state_path.exists():
             try:
@@ -746,6 +753,32 @@ class Agent:
         except Exception as e:
             self.web.report(cmd["id"], "error", error=str(e), detail="Agent failed: %s" % e)
 
+    # ------------------------------------------------------- quehong feed
+    def que_push_occupancy(self):
+        """Tell the quehong queue server which ESB tables are busy right now
+        (open head on the table). Read-only on ESB; failures never block."""
+        if not self.que_url:
+            return
+        busy = sorted({r["tableName"] for r in self.db.q(
+            "SELECT t.tableName FROM tr_saleshead h "
+            "JOIN ms_table t ON t.tableID = h.tableID "
+            "WHERE h.salesDateOut IS NULL AND h.statusID IN (%s)"
+            % ",".join(str(s) for s in OPEN_STATUS_IDS))})
+        # Re-send unchanged lists once a minute anyway (quehong may restart).
+        if busy == self._que_last_busy and time.time() - self._que_last_push < 60:
+            return
+        req = urllib.request.Request(
+            self.que_url + "/api/que/esb-occupancy",
+            data=json.dumps({"busy": busy}).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+        changed = busy != self._que_last_busy
+        self._que_last_busy = busy
+        self._que_last_push = time.time()
+        if changed:
+            print("[que] busy tables -> %s" % (", ".join(busy) or "none"))
+
     def run(self):
         print("hc-bridge-agent %s — polling %s every %ss, DB=%s"
               % (AGENT_VERSION, self.web.base, self.poll_seconds, self.db.conn.db.decode()
@@ -779,6 +812,12 @@ class Agent:
                     self.kds_poll()
                 except Exception as e:
                     print("[kds-loop]", e, file=sys.stderr)
+            if self.que_url:
+                # Occupancy feed to quehong is best-effort and never blocks.
+                try:
+                    self.que_push_occupancy()
+                except Exception as e:
+                    print("[que-loop]", e, file=sys.stderr)
             time.sleep(self.poll_seconds)
 
     # ------------------------------------------------------------- menu sync
@@ -861,6 +900,8 @@ def main():
             sys.exit("no [kds] section in config")
         agent.kds_poll()
         agent.watch()
+        if agent.que_url:
+            agent.que_push_occupancy()
     elif args.sync_menu:
         agent.sync_menu()
     elif args.sync_tables:

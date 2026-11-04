@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antrian — Edo Sushi</title>
+<style>
+:root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
+* { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
+body { background:var(--ground); color:var(--ink); height:100vh; overflow:hidden; }
+.view { display:none; height:100vh; padding:3vh 3vw; }
+.view.on { display:flex; flex-direction:column; }
+h1 { font-weight:800; font-size:3.4vh; letter-spacing:-.01em; }
+.tag { color:var(--muted); font-size:2vh; margin-bottom:2vh; }
+/* queue board */
+.board { flex:1; display:grid; grid-template-columns:1.2fr 1fr .8fr; gap:2vw; min-height:0; }
+.col { background:var(--surface); padding:2.5vh 2vw; display:flex; flex-direction:column; min-height:0; }
+.col h2 { font-size:2.4vh; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:1.5vh; }
+.serving { background:var(--ink); color:#fff; }
+.serving .nums { flex:1; display:flex; flex-direction:column; justify-content:center; gap:1vh; overflow:hidden; }
+.serving .n { font-size:9vh; font-weight:800; line-height:1.05; }
+.serving .n small { font-size:3vh; font-weight:400; color:#bbb; margin-left:1vw; }
+.serving .n .tbl { color:#ff9c9b; }
+ul { list-style:none; overflow:hidden; flex:1; }
+li { font-size:4.2vh; font-weight:700; padding:1vh 0; border-bottom:1px solid #d6d6d4; display:flex; justify-content:space-between; }
+li small { font-weight:400; color:var(--muted); font-size:2.4vh; align-self:center; }
+.pending li { color:var(--muted); }
+/* seat view */
+.seatwrap { flex:1; display:grid; grid-template-columns:1fr 2fr; gap:2vw; min-height:0; }
+.callcard { background:var(--surface); display:flex; flex-direction:column; justify-content:center; text-align:center; padding:3vh; }
+.callcard .lbl { font-size:2.6vh; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+.callcard .num { font-size:16vh; font-weight:800; color:var(--accent); line-height:1; margin:2vh 0; }
+.callcard .tbl { font-size:5vh; font-weight:800; }
+.callcard .tbl b { color:var(--accent); }
+svg { width:100%; height:100%; }
+.t { fill:#fff; stroke:#9a9a98; }
+.t.busy, .t.manual { fill:#d8d8d6; stroke:#b5b5b3; }
+.t.held { fill:#f4d9a8; stroke:#c9a25a; }
+.t.seated { fill:#f7c4c3; stroke:var(--accent); }
+.t.blink { fill:var(--accent); stroke:var(--accent); animation:blink 1s step-start infinite; }
+@keyframes blink { 50% { fill:#fff; } }
+.tl { font-size:24px; font-weight:700; fill:var(--ink); text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+.blink + .tl { fill:#fff; animation:blinktxt 1s step-start infinite; }
+@keyframes blinktxt { 50% { fill:var(--ink); } }
+.legend { display:flex; gap:2vw; font-size:1.8vh; color:var(--muted); margin-top:1vh; }
+.legend i { display:inline-block; width:1.6vh; height:1.6vh; margin-right:.5vw; border:1px solid #999; }
+</style>
+</head>
+<body>
+<div class="view" id="vqueue">
+  <h1>Edo Sushi — Antrian / Queue</h1>
+  <div class="tag">Pindai QR struk Anda di pintu masuk saat dipanggil · Scan your ticket QR at the entrance when called</div>
+  <div class="board">
+    <div class="col serving"><h2>Dipanggil / Now serving</h2><div class="nums" id="serving"></div></div>
+    <div class="col"><h2>Berikutnya / Next</h2><ul id="next"></ul></div>
+    <div class="col pending"><h2>Terlewat / Missed</h2><ul id="pending"></ul></div>
+  </div>
+</div>
+<div class="view" id="vseat">
+  <h1>Edo Sushi — Silakan Duduk / Please Be Seated</h1>
+  <div class="tag" id="seattag">Denah meja / floor plan</div>
+  <div class="seatwrap">
+    <div class="callcard" id="callcard" style="visibility:hidden">
+      <div class="lbl">Nomor / Number</div>
+      <div class="num" id="snum"></div>
+      <div class="tbl">Meja / Table <b id="stbl"></b></div>
+    </div>
+    <div><svg id="floor"></svg>
+      <div class="legend">
+        <span><i style="background:#fff"></i>kosong / free</span>
+        <span><i style="background:#f4d9a8"></i>dipanggil / called</span>
+        <span><i style="background:#f7c4c3"></i>baru duduk / seated</span>
+        <span><i style="background:#d8d8d6"></i>terisi / occupied</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const VIEW = new URLSearchParams(location.search).get('view') || 'auto';
+const SEAT_SECONDS = 60;
+let cfg = null, seatTimer = null;
+
+function show(name) {
+  document.getElementById('vqueue').classList.toggle('on', name === 'queue');
+  document.getElementById('vseat').classList.toggle('on', name === 'seat');
+}
+function idleView() { return VIEW === 'seat' ? 'seat' : 'queue'; }
+
+async function boot() {
+  cfg = await (await fetch('/api/que/config')).json();
+  const svg = document.getElementById('floor');
+  svg.setAttribute('viewBox', `0 0 ${cfg.view.w} ${cfg.view.h}`);
+  svg.innerHTML = cfg.tables.map(t =>
+    `<rect class="t" id="tbl-${t.id}" x="${t.x}" y="${t.y}" width="${t.w}" height="${t.h}"></rect>` +
+    `<text class="tl" x="${t.x + t.w / 2}" y="${t.y + t.h / 2}">${t.id}</text>`).join('');
+  show(idleView());
+  refresh();
+  const es = new EventSource('/api/que/events');
+  es.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === 'seat') onSeat(ev);
+    else if (ev.type === 'called') { refresh(); announceCalled(ev.number); }
+    else refresh();
+  };
+  setInterval(refresh, 10000);
+}
+
+async function refresh() {
+  const o = await (await fetch('/api/que/overview')).json();
+  document.getElementById('serving').innerHTML = o.called.slice(0, 4).map(c =>
+    `<div class="n">${c.disp}${c.state === 'seated'
+      ? ` <small class="tbl">meja ${c.tables.join(',')}</small>`
+      : ' <small>menuju pintu / to entrance</small>'}</div>`).join('') ||
+    '<div class="n" style="font-size:4vh;color:#888">—</div>';
+  document.getElementById('next').innerHTML = o.waiting.slice(0, 8).map(w =>
+    `<li>${w.disp}<small>${w.pax} pax</small></li>`).join('');
+  document.getElementById('pending').innerHTML = o.pending.slice(0, 8).map(w =>
+    `<li>${w.disp}<small>${w.pax} pax</small></li>`).join('');
+  for (const t of o.tables) {
+    const el = document.getElementById('tbl-' + t.id);
+    if (el && !el.classList.contains('blink')) el.setAttribute('class', 't ' + (t.status === 'free' ? '' : t.status));
+  }
+}
+
+function onSeat(ev) {
+  show('seat');
+  const card = document.getElementById('callcard');
+  card.style.visibility = 'visible';
+  document.getElementById('snum').textContent = 'Q' + String(ev.number).padStart(3, '0');
+  document.getElementById('stbl').textContent = ev.tables.join(', ');
+  for (const id of ev.tables) {
+    const el = document.getElementById('tbl-' + id);
+    if (el) el.setAttribute('class', 't blink');
+  }
+  speak(ev);
+  clearTimeout(seatTimer);
+  seatTimer = setTimeout(() => {
+    card.style.visibility = 'hidden';
+    document.querySelectorAll('.t.blink').forEach(el => el.setAttribute('class', 't'));
+    refresh();
+    show(idleView());
+  }, SEAT_SECONDS * 1000);
+  refresh();
+}
+
+function utter(text, lang) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  const v = speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith(lang.slice(0, 2)));
+  if (v) u.voice = v;
+  u.rate = 0.92;
+  speechSynthesis.speak(u);
+}
+function speak(ev) {
+  const tbl = ev.tables.join(', meja ');
+  utter(`Nomor antrian ${ev.number}. Silakan menuju meja ${tbl}.`, 'id-ID');
+  if ((cfg.voice || 'id').includes('en'))
+    utter(`Queue number ${ev.number}, please proceed to table ${ev.tables.join(', and table ')}.`, 'en-US');
+}
+function announceCalled(number) {
+  utter(`Nomor antrian ${number}. Silakan ke pintu masuk.`, 'id-ID');
+  if ((cfg.voice || 'id').includes('en'))
+    utter(`Queue number ${number}, please come to the entrance.`, 'en-US');
+}
+speechSynthesis.getVoices(); // warm the voice list
+boot();
+</script>
+</body>
+</html>

@@ -47,6 +47,12 @@ test/                  node:test suites; test/journey.test.js boots both servers
 agent/hc_bridge_agent.py  the mini-PC agent (PyMySQL). agent.ini is GITIGNORED (secrets)
 agent/kds_stub.py      stateful KDS test double (replays verified device behavior; /ctl/* driver)
 agent/README.md        agent setup (Windows Task Scheduler / Linux) + KDS poller mode
+que/                   QUEHONG walk-in queue/ticketing (see "Fact sheet 5"):
+                       server.js local mini-PC server, store.js queue core,
+                       printer.js TM-T82X ESC/POS, pub.js VPS public mirror,
+                       wa/worker.js Baileys bot, data/tables.json floor plan,
+                       public/ register|display|scan|admin pages,
+                       README.md (Windows setup), DEPLOY_VPS.md (VPS runbook)
 hermes/bot.js          Discord ⇄ agent bridge (this is how you are being driven)
 deploy/                nginx + systemd units (hongchiang = apphong, hongchiang-mid = midhong)
 docs/                  deep docs: DEPLOYMENT, VPS_GIT, HERMES_DISCORD,
@@ -294,6 +300,37 @@ ms_menu.price can be 0). Tested end-to-end against agent/kds_stub.py + a real
 sushipos MariaDB: rounds→batches, name fallback, idempotent re-poll, dine-in
 and walk-in settle-back, restart recovery.
 
+## Fact sheet 5 — quehong walk-in queue (que/, 2026-11-04)
+
+Separate product sharing the repo + mini-PC: tablet registration → TM-T82X
+prints ONE roll with TWO native QRs (QR Queue = quehong.berkatselalu.com
+/q/<20-hex token>, same QR works for the phone landing page AND the USB
+door scanner; QR WhatsApp = wa.me/<bot>?text=EDQ-xxxx) → TVs /display
+?view=queue|seat|auto (seat view = SVG floor plan from data/tables.json,
+blinking table, speechSynthesis id-ID + optional en-US, 60 s takeover per
+scan) → /scan (USB keyboard-wedge scanner) → /admin kanban (PIN).
+Ticket states: waiting → called → seated → finished, no-show after 5 min →
+pending; a pending scan re-inserts at main-queue position 2. Seat mapping:
+1 pax → counter, 2 pax → 2-seater first (4-seater only while free 4-tops >
+upsizeReserve=1), 3 → 4-seater, > 4 → greedy split + bilingual apology
+(printed + tablet); a blocked party reserves its table class so it can't be
+starved. Occupancy: agent [que] url → POST /api/que/esb-occupancy {busy:
+[tableName]} from open ESB heads (OPEN_STATUS_IDS, 60 s keepalive); ESB
+opening a head on a seated table "hands off" the hold and finishes the
+ticket; manual busy/free in /admin is the fallback. tables.json capacities
+(01–16 = 1 pax counter; 20–60 guessed 2/4) are THE thing to tune with the
+owner; id must match ms_table.tableName. WhatsApp: Baileys (unofficial, ban
+risk accepted, we only message people who messaged us first); worker polls
+GET /api/que/wa/outbox + POSTs inbound EDQ codes; the SENDER's number
+overwrites tablet typos (wa_verified). Mirror: server pushes store.mirror()
+to pub.js (Bearer QUE_TOKEN, debounced + 30 s); landing page auto-refreshes
+7 s and dies at revoked (seat/finish). Local API peers (agent, WA worker)
+are loopback-only unless PIN'd. Env: see que/README.md run_que.bat block;
+state file QUE_STATE (default que/data/que_state.json, gitignored). pub.js
+on VPS :3200 (unit hongchiang-que, nginx quehong.berkatselalu.com) —
+runbook que/DEPLOY_VPS.md. Tests: test/que.test.js (9) covers assignment
+rules, no-show/re-insert, scan flow, ESB handoff, WA bind, mirror revoke.
+
 Agent golden rules (inherited from the production Posmid replication middleware):
 1. MySQL **5.7-safe SQL only** (no CTEs/window functions). MariaDB test rigs
    accept more than real MySQL 5.7 — passing tests is not proof.
@@ -336,6 +373,11 @@ from Hong Chiang's own app mirror into ESB and settle back (see Fact sheet 4);
 verified against kds_stub.py + real MariaDB; needs `[kds]`/`[kds_menu_map]`
 in the branch agent.ini to go live. VPS rollout of midhong (env vars, unit,
 nginx, certbot, agent.ini url) is an operator step — see docs/DEPLOYMENT.md §5.
+Done (2026-11-04): quehong walk-in queue system (Fact sheet 5) — built and
+smoke-tested in-session (unit tests + live register/scan/occupancy/mirror +
+Playwright screenshots); operator steps pending: VPS deploy
+(que/DEPLOY_VPS.md), mini-PC install (que/README.md), tables.json capacity
+tuning, WA bot number link.
 
 Open/likely asks:
 - QRIS/online payment in the app (needs a decision on bridge-side ESB

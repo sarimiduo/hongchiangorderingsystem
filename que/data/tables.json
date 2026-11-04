@@ -1,0 +1,469 @@
+{
+ "store": "Edo Sushi",
+ "note": "capacity + x/y are editable; id must match ms_table.tableName in ESB (or set esb_name per table)",
+ "view": {
+  "w": 1000,
+  "h": 700
+ },
+ "tables": [
+  {
+   "id": "01",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 40,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "02",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 86,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "03",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 132,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "04",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 178,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "05",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 224,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "06",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 270,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "07",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 316,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "08",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 902,
+   "y": 362,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "09",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 40,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "10",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 86,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "11",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 132,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "12",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 178,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "13",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 224,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "14",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 270,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "15",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 316,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "16",
+   "capacity": 1,
+   "zone": "counter",
+   "x": 830,
+   "y": 362,
+   "w": 56,
+   "h": 38
+  },
+  {
+   "id": "20",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 702,
+   "y": 40,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "21",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 702,
+   "y": 126,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "22",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 702,
+   "y": 212,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "23",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 702,
+   "y": 298,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "24",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 702,
+   "y": 384,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "25",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 630,
+   "y": 212,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "26",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 630,
+   "y": 298,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "27",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 630,
+   "y": 470,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "30",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "31",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "32",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 352,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "33",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 438,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "34",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 524,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "35",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 512,
+   "y": 610,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "40",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "41",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "42",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 352,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "43",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 438,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "44",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 524,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "45",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 440,
+   "y": 610,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "46",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 322,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "47",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 322,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "48",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 322,
+   "y": 438,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "49",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 322,
+   "y": 524,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "50",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 250,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "51",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 250,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "52",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 250,
+   "y": 352,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "53",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 250,
+   "y": 438,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "54",
+   "capacity": 4,
+   "zone": "floor",
+   "x": 250,
+   "y": 524,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "55",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 132,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "56",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 132,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "57",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 132,
+   "y": 352,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "58",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 60,
+   "y": 180,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "59",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 60,
+   "y": 266,
+   "w": 62,
+   "h": 66
+  },
+  {
+   "id": "60",
+   "capacity": 2,
+   "zone": "floor",
+   "x": 60,
+   "y": 352,
+   "w": 62,
+   "h": 66
+  }
+ ]
+}

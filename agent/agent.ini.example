@@ -44,3 +44,9 @@ state_file = agent_state.json
 ;[kds_menu_map]
 ;380 = KDS-380
 ;379 = KDS-379
+
+; ---- optional: QUEHONG walk-in queue ----
+; Push the live busy-table list (open ESB heads) to the quehong queue server
+; on this mini-PC, so walk-in guests are seated on real POS occupancy.
+;[que]
+;url = http://127.0.0.1:3200

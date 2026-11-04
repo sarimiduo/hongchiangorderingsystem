@@ -1,0 +1,12 @@
+{
+  "name": "quehong-wa-worker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Baileys WhatsApp worker for the quehong walk-in queue (runs on the branch mini-PC)",
+  "main": "worker.js",
+  "scripts": { "start": "node worker.js" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
