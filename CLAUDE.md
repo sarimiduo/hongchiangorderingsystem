@@ -325,16 +325,23 @@ door scanner; QR WhatsApp = wa.me/<bot>?text=EDQ-xxxx) → TVs /display
 blinking table, speechSynthesis id-ID + optional en-US, 60 s takeover per
 scan) → /scan (USB keyboard-wedge scanner) → /admin kanban (PIN).
 Ticket states: waiting → called → seated → finished, no-show after 5 min →
-pending; a pending scan re-inserts at main-queue position 2. Seat mapping:
-1 pax → counter, 2 pax → 2-seater first (4-seater only while free 4-tops >
-upsizeReserve=1), 3 → 4-seater, > 4 → greedy split + bilingual apology
-(printed + tablet); a blocked party reserves its table class so it can't be
-starved. Occupancy: agent [que] url → POST /api/que/esb-occupancy {busy:
-[tableName]} from open ESB heads (OPEN_STATUS_IDS, 60 s keepalive); ESB
-opening a head on a seated table "hands off" the hold and finishes the
-ticket; manual busy/free in /admin is the fallback. tables.json capacities
-(01–16 = 1 pax counter; 20–60 guessed 2/4) are THE thing to tune with the
-owner; id must match ms_table.tableName. WhatsApp: Baileys (unofficial, ban
+pending; a pending scan re-inserts at main-queue position 2. Seat mapping
+(OWNER RULES 2026-11-05, encoded in tables.json priority/max_pax +
+store.assignFor): counter 01–16 (capacity 1) serves 1–2 pax — a couple gets
+TWO ADJACENT stools (same column, consecutive numbers); floor tables 20–60
+are 4-seaters that hold up to max_pax 6; priority-1 zone 20–45 is mandatory
+fill-first, priority-2 zone 46–60 opens only when zone 1 is full; 1–2 pax
+overflow to a floor table only when no stool/pair is free AND more than
+upsizeReserve(=1) floor tables remain; > 6 pax → greedy split across floor
+tables (priority zone first, counter never) + bilingual apology (printed +
+tablet, register.html threshold pax > 6); a blocked party reserves its
+seating class ('counter'/'floor', needClasses) so it can't be starved while
+other classes flow past. (26–27 assumed zone 1 — flip their priority in
+tables.json if the owner meant otherwise.) Occupancy: agent [que] url →
+POST /api/que/esb-occupancy {busy: [tableName]} from open ESB heads
+(OPEN_STATUS_IDS, 60 s keepalive); ESB opening a head on a seated table
+"hands off" the hold and finishes the ticket; manual busy/free in /admin is
+the fallback. tables.json ids must match ms_table.tableName. WhatsApp: Baileys (unofficial, ban
 risk accepted, we only message people who messaged us first); worker polls
 GET /api/que/wa/outbox + POSTs inbound EDQ codes; the SENDER's number
 overwrites tablet typos (wa_verified). Mirror: server pushes store.mirror()

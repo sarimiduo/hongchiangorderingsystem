@@ -69,7 +69,7 @@ for (let i = 1; i <= 12; i++) {
 }
 function render() {
   [...paxEl.children].forEach((b, i) => b.classList.toggle('on', i + 1 === pax));
-  document.getElementById('bignote').style.display = pax > 4 ? 'block' : 'none';
+  document.getElementById('bignote').style.display = pax > 6 ? 'block' : 'none';
 }
 render();
 document.getElementById('form').onsubmit = async e => {

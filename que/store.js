@@ -91,13 +91,12 @@ class QueStore {
     const token = crypto.randomBytes(10).toString('hex');
     let code = 'EDQ-';
     for (const b of crypto.randomBytes(4)) code += CODE_ALPHABET[b % 32];
-    const maxCap = Math.max(...this.inventory.map(t => t.capacity));
     const t = {
       token, code, number: this.state.next_number++, day: this.state.day,
       name: String(name || '').slice(0, 60), wa: normalizeWa(wa), pax,
       lang: lang === 'en' ? 'en' : 'id',
       wa_verified: false, wa_jid: null, nudged: false, revoked: false,
-      split: pax > maxCap, state: 'waiting', table_ids: [],
+      split: pax > this.floorMaxFit(), state: 'waiting', table_ids: [],
       created_at: this.now(), called_at: null, pending_at: null, seated_at: null,
     };
     this.state.tickets[token] = t;
@@ -119,36 +118,64 @@ class QueStore {
 
   freeTables() { return this.inventory.filter(t => this.tableState(t) === 'free'); }
 
-  minNeedCap(pax) {
-    const caps = [...new Set(this.inventory.map(t => t.capacity))].sort((a, b) => a - b);
-    for (const c of caps) if (c >= pax) return c;
-    return 'split';
+  floorMaxFit() {
+    const floor = this.inventory.filter(t => t.zone !== 'counter');
+    const pool = floor.length ? floor : this.inventory;
+    return Math.max(...pool.map(t => t.max_pax || t.capacity));
   }
 
-  /** Pick table(s) for a party. Returns {tables:[ids], split} or null. */
-  assignFor(pax, blockedCaps) {
-    blockedCaps = blockedCaps || new Set();
-    const free = this.freeTables();
-    const byCap = new Map();
-    for (const t of free) {
-      if (!byCap.has(t.capacity)) byCap.set(t.capacity, []);
-      byCap.get(t.capacity).push(t);
+  /** Which seating resources a party needs (for the starvation guard). */
+  needClasses(pax) { return pax <= 2 ? ['counter', 'floor'] : ['floor']; }
+
+  /** Two adjacent free counter stools (same column, consecutive numbers). */
+  counterPair(counterFree) {
+    const num = id => parseInt(id, 10);
+    const sorted = counterFree.slice().sort((a, b) => num(a.id) - num(b.id));
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i], b = sorted[i + 1];
+      const sameCol = a.x == null || b.x == null || a.x === b.x;
+      if (sameCol && num(b.id) - num(a.id) === 1) return [a.id, b.id];
     }
-    const caps = [...byCap.keys()].sort((a, b) => a - b);
-    const maxCap = Math.max(...this.inventory.map(t => t.capacity));
-    if (pax <= maxCap) {
-      for (const cap of caps) {
-        if (cap < pax || blockedCaps.has(cap)) continue;
-        // Small parties keep big tables in reserve: a 1-2 pax group takes a
-        // 4-seater only while more than `upsizeReserve` of them stay free.
-        if (pax <= 2 && cap >= 4 && byCap.get(cap).length <= this.upsizeReserve) continue;
-        return { tables: [byCap.get(cap)[0].id], split: false };
+    return null;
+  }
+
+  /** Pick table(s) for a party. Returns {tables:[ids], split} or null.
+   * Owner rules (2026-11-05): counter 01-16 serves 1-2 pax (couples on two
+   * adjacent stools); floor 4-seaters hold up to their max_pax (6); the
+   * priority-1 zone (20-45) fills before priority-2 (46-60); larger parties
+   * split across floor tables, priority zone first. */
+  assignFor(pax, blocked) {
+    blocked = blocked || new Set();
+    const free = this.freeTables();
+    const num = id => parseInt(id, 10);
+    const counter = free.filter(t => t.zone === 'counter');
+    const floor = free.filter(t => t.zone !== 'counter').sort((a, b) =>
+      (a.priority || 1) - (b.priority || 1) || a.capacity - b.capacity || num(a.id) - num(b.id));
+
+    if (pax <= 2 && !blocked.has('counter')) {
+      if (pax === 1 && counter.length) {
+        const seat = counter.slice().sort((a, b) => num(a.id) - num(b.id))[0];
+        return { tables: [seat.id], split: false };
+      }
+      if (pax === 2) {
+        const pair = this.counterPair(counter);
+        if (pair) return { tables: pair, split: false };
+      }
+    }
+    if (blocked.has('floor')) return null;
+    if (pax <= this.floorMaxFit()) {
+      for (const t of floor) {
+        if (pax > (t.max_pax || t.capacity)) continue;
+        // 1-2 pax overflow to a floor table only while more than
+        // `upsizeReserve` floor tables stay free for bigger groups.
+        if (pax <= 2 && floor.length <= this.upsizeReserve) break;
+        return { tables: [t.id], split: false };
       }
       return null;
     }
-    // Split party: largest tables first until the pax fit.
-    if (blockedCaps.has(maxCap)) return null;
-    const desc = free.slice().sort((a, b) => b.capacity - a.capacity);
+    // Split party: floor tables only, priority zone first, biggest first.
+    const desc = floor.slice().sort((a, b) =>
+      (a.priority || 1) - (b.priority || 1) || b.capacity - a.capacity || num(a.id) - num(b.id));
     const pick = []; let sum = 0;
     for (const t of desc) { pick.push(t.id); sum += t.capacity; if (sum >= pax) break; }
     return sum >= pax ? { tables: pick, split: true } : null;
@@ -166,18 +193,15 @@ class QueStore {
       if (t.state === 'seated' && now - t.seated_at >= this.seatedTimeoutMs) { t.state = 'finished'; this.releaseHolds(t); changed = true; }
     }
 
-    // Call in queue order; a blocked party reserves its table class so the
-    // parties behind it cannot starve it (but smaller classes flow past).
-    const blockedCaps = new Set();
+    // Call in queue order; a blocked party reserves its seating class so the
+    // parties behind it cannot starve it (other classes flow past).
+    const blocked = new Set();
     for (const token of [...this.state.main]) {
       const t = this.state.tickets[token];
       if (!t || t.state !== 'waiting') continue;
-      const res = this.assignFor(t.pax, blockedCaps);
+      const res = this.assignFor(t.pax, blocked);
       if (res) { this.call(t, res.tables); changed = true; }
-      else {
-        const need = this.minNeedCap(t.pax);
-        blockedCaps.add(need === 'split' ? Math.max(...this.inventory.map(x => x.capacity)) : need);
-      }
+      else for (const c of this.needClasses(t.pax)) blocked.add(c);
     }
 
     // "Come back now" nudge when one group (or none) is ahead.

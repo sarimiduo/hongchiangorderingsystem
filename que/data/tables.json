@@ -1,6 +1,6 @@
 {
  "store": "Edo Sushi",
- "note": "capacity + x/y are editable; id must match ms_table.tableName in ESB (or set esb_name per table)",
+ "note": "Owner rules 2026-11-05: priority 1 (20-45) fills first, priority 2 (46-60) after; floor 4-seaters hold up to max_pax 6; counter 01-16 is for 1-2 pax (couples take two adjacent stools). capacity/x/y editable; id must match ms_table.tableName.",
  "view": {
   "w": 1000,
   "h": 700
@@ -13,7 +13,8 @@
    "x": 902,
    "y": 40,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "02",
@@ -22,7 +23,8 @@
    "x": 902,
    "y": 86,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "03",
@@ -31,7 +33,8 @@
    "x": 902,
    "y": 132,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "04",
@@ -40,7 +43,8 @@
    "x": 902,
    "y": 178,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "05",
@@ -49,7 +53,8 @@
    "x": 902,
    "y": 224,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "06",
@@ -58,7 +63,8 @@
    "x": 902,
    "y": 270,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "07",
@@ -67,7 +73,8 @@
    "x": 902,
    "y": 316,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "08",
@@ -76,7 +83,8 @@
    "x": 902,
    "y": 362,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "09",
@@ -85,7 +93,8 @@
    "x": 830,
    "y": 40,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "10",
@@ -94,7 +103,8 @@
    "x": 830,
    "y": 86,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "11",
@@ -103,7 +113,8 @@
    "x": 830,
    "y": 132,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "12",
@@ -112,7 +123,8 @@
    "x": 830,
    "y": 178,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "13",
@@ -121,7 +133,8 @@
    "x": 830,
    "y": 224,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "14",
@@ -130,7 +143,8 @@
    "x": 830,
    "y": 270,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "15",
@@ -139,7 +153,8 @@
    "x": 830,
    "y": 316,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "16",
@@ -148,79 +163,96 @@
    "x": 830,
    "y": 362,
    "w": 56,
-   "h": 38
+   "h": 38,
+   "priority": 1
   },
   {
    "id": "20",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 702,
    "y": 40,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "21",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 702,
    "y": 126,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "22",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 702,
    "y": 212,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "23",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 702,
    "y": 298,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "24",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 702,
    "y": 384,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "25",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 630,
    "y": 212,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "26",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 630,
    "y": 298,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "27",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 630,
    "y": 470,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "30",
@@ -229,7 +261,9 @@
    "x": 512,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "31",
@@ -238,7 +272,9 @@
    "x": 512,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "32",
@@ -247,7 +283,9 @@
    "x": 512,
    "y": 352,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "33",
@@ -256,7 +294,9 @@
    "x": 512,
    "y": 438,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "34",
@@ -265,7 +305,9 @@
    "x": 512,
    "y": 524,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "35",
@@ -274,7 +316,9 @@
    "x": 512,
    "y": 610,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "40",
@@ -283,7 +327,9 @@
    "x": 440,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "41",
@@ -292,7 +338,9 @@
    "x": 440,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "42",
@@ -301,7 +349,9 @@
    "x": 440,
    "y": 352,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "43",
@@ -310,7 +360,9 @@
    "x": 440,
    "y": 438,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "44",
@@ -319,7 +371,9 @@
    "x": 440,
    "y": 524,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "45",
@@ -328,7 +382,9 @@
    "x": 440,
    "y": 610,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 1
   },
   {
    "id": "46",
@@ -337,7 +393,9 @@
    "x": 322,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "47",
@@ -346,7 +404,9 @@
    "x": 322,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "48",
@@ -355,7 +415,9 @@
    "x": 322,
    "y": 438,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "49",
@@ -364,7 +426,9 @@
    "x": 322,
    "y": 524,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "50",
@@ -373,7 +437,9 @@
    "x": 250,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "51",
@@ -382,7 +448,9 @@
    "x": 250,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "52",
@@ -391,7 +459,9 @@
    "x": 250,
    "y": 352,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "53",
@@ -400,7 +470,9 @@
    "x": 250,
    "y": 438,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "54",
@@ -409,61 +481,75 @@
    "x": 250,
    "y": 524,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "55",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 132,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "56",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 132,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "57",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 132,
    "y": 352,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "58",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 60,
    "y": 180,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "59",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 60,
    "y": 266,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   },
   {
    "id": "60",
-   "capacity": 2,
+   "capacity": 4,
    "zone": "floor",
    "x": 60,
    "y": 352,
    "w": 62,
-   "h": 66
+   "h": 66,
+   "max_pax": 6,
+   "priority": 2
   }
  ]
 }
