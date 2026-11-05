@@ -105,22 +105,37 @@ async function boot() {
   setInterval(refresh, 10000);
 }
 
+const LIST_ROWS = 8;
+let cur = null, rotPage = 0;
+
+// Long lists loop through pages so every number gets screen time on a TV
+// that cannot scroll.
+function rotWindow(arr, n) {
+  if (arr.length <= n) return arr;
+  const off = (rotPage * n) % arr.length;
+  return arr.slice(off, off + n).concat(arr.slice(0, Math.max(0, off + n - arr.length)));
+}
+
 async function refresh() {
-  const o = await (await fetch('/api/que/overview')).json();
-  document.getElementById('serving').innerHTML = o.called.slice(0, 4).map(c =>
-    `<div class="n">${c.disp}${c.state === 'seated'
-      ? ` <small class="tbl">meja ${c.tables.join(',')}</small>`
-      : ' <small>menuju pintu / to entrance</small>'}</div>`).join('') ||
+  cur = await (await fetch('/api/que/overview')).json();
+  render();
+}
+
+function render() {
+  if (!cur) return;
+  document.getElementById('serving').innerHTML = cur.called.slice(0, 4).map(c =>
+    `<div class="n">${c.disp} <small>menuju pintu / to entrance</small></div>`).join('') ||
     '<div class="n" style="font-size:4vh;color:#888">...</div>';
-  document.getElementById('next').innerHTML = o.waiting.slice(0, 8).map(w =>
+  document.getElementById('next').innerHTML = rotWindow(cur.waiting, LIST_ROWS).map(w =>
     `<li>${w.disp}<small>${w.pax} pax</small></li>`).join('');
-  document.getElementById('pending').innerHTML = o.pending.slice(0, 8).map(w =>
+  document.getElementById('pending').innerHTML = rotWindow(cur.pending, LIST_ROWS).map(w =>
     `<li>${w.disp}<small>${w.pax} pax</small></li>`).join('');
-  for (const t of o.tables) {
+  for (const t of cur.tables) {
     const el = document.getElementById('tbl-' + t.id);
     if (el && !el.classList.contains('blink')) el.setAttribute('class', 't ' + (t.status === 'free' ? '' : t.status));
   }
 }
+setInterval(() => { rotPage++; render(); }, 6000);
 
 function onSeat(ev) {
   show('seat');

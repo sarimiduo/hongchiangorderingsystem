@@ -324,8 +324,17 @@ door scanner; QR WhatsApp = wa.me/<bot>?text=EDQ-xxxx) → TVs /display
 ?view=queue|seat|auto (seat view = SVG floor plan from data/tables.json,
 blinking table, speechSynthesis id-ID + optional en-US, 60 s takeover per
 scan) → /scan (USB keyboard-wedge scanner) → /admin kanban (PIN).
-Ticket states: waiting → called → seated → finished, no-show after 5 min →
-pending; a pending scan re-inserts at main-queue position 2. Seat mapping
+Ticket states: waiting → called → finished (a door scan seats AND finishes
+in one step — owner rule 2026-11-05: the number leaves the kanban at once,
+the seat TV blinks from the event, and the TABLE stays held via
+holds{kind:'seated', at} until the ESB handoff, staff "bebaskan", or
+QUE_SEAT_HOLD_MINUTES default 45; re-scanning a finished ticket re-shows
+its table). No-show after QUE_NO_SHOW_MINUTES (default 5, branch runs 2) →
+pending; a pending scan re-inserts at main-queue position 2; pending older
+than QUE_PENDING_EXPIRE_MINUTES (default 60) is auto-cancelled with a WA
+notice. Display board: "Berikutnya" = waiting tickets (shows only when
+tables are full); Next/Missed lists longer than 8 rows loop in 6 s pages
+(TVs cannot scroll). Seat mapping
 (OWNER RULES 2026-11-05, encoded in tables.json priority/max_pax +
 store.assignFor): counter 01–16 (capacity 1) serves 1–2 pax — a couple gets
 TWO ADJACENT stools (same column, consecutive numbers); floor tables 20–60

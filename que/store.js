@@ -41,6 +41,7 @@ class QueStore {
     this.noShowMs = opts.noShowMs != null ? opts.noShowMs : 5 * 60 * 1000;
     this.reinsertDepth = opts.reinsertDepth != null ? opts.reinsertDepth : 2;
     this.seatedTimeoutMs = opts.seatedTimeoutMs != null ? opts.seatedTimeoutMs : 45 * 60 * 1000;
+    this.pendingExpireMs = opts.pendingExpireMs != null ? opts.pendingExpireMs : 60 * 60 * 1000;
     this.now = opts.now || (() => Date.now());
     this.listeners = [];
     this.state = {
@@ -57,6 +58,14 @@ class QueStore {
     if (fs.existsSync(this.file)) {
       try { Object.assign(this.state, JSON.parse(fs.readFileSync(this.file, 'utf8'))); }
       catch (e) { console.error('[que] state file unreadable, starting fresh:', e.message); }
+    }
+    // Migrate pre-2026-11-05 state: 'seated' tickets are now finished at scan
+    // time, and seated holds carry a timestamp for the hold timeout.
+    for (const t of Object.values(this.state.tickets)) {
+      if (t.state === 'seated') { t.state = 'finished'; t.revoked = true; }
+    }
+    for (const h of Object.values(this.state.holds)) {
+      if (h.kind === 'seated' && !h.at) h.at = this.now();
     }
   }
 
@@ -190,7 +199,23 @@ class QueStore {
 
     for (const t of Object.values(this.state.tickets)) {
       if (t.state === 'called' && now - t.called_at >= this.noShowMs) { this.toPending(t); changed = true; }
-      if (t.state === 'seated' && now - t.seated_at >= this.seatedTimeoutMs) { t.state = 'finished'; this.releaseHolds(t); changed = true; }
+    }
+    // Seated holds without an ESB handoff (agent offline) free themselves
+    // after seatedTimeoutMs so tables cannot leak.
+    for (const [id, h] of Object.entries(this.state.holds)) {
+      if (h.kind === 'seated' && h.at && now - h.at >= this.seatedTimeoutMs) { delete this.state.holds[id]; changed = true; }
+    }
+    // A no-show that never returns leaves the Missed lane after pendingExpireMs.
+    for (const token of [...this.state.pending]) {
+      const t = this.state.tickets[token];
+      if (t && now - t.pending_at >= this.pendingExpireMs) {
+        this.state.pending = this.state.pending.filter(x => x !== token);
+        t.state = 'cancelled';
+        t.revoked = true;
+        if (t.wa_verified) this.sendWa(t,
+          `Mohon maaf, antrian ${fmtNumber(t.number)} dibatalkan karena tidak hadir. Silakan daftar ulang saat tiba di ${this.storeName}.\nSorry, your queue number was cancelled as a no-show. Please register again when you arrive.`);
+        changed = true;
+      }
     }
 
     // Call in queue order; a blocked party reserves its seating class so the
@@ -254,11 +279,15 @@ class QueStore {
     const m = String(data || '').trim().match(/([0-9a-f]{20})\s*$/i);
     const t = m ? this.ticket(m[1].toLowerCase()) : null;
     if (!t) return { ok: false, result: 'unknown', msg: 'QR tidak dikenal / unknown QR' };
+    // A finished ticket scanned again today re-shows its table on the TV.
+    if (t.day === this.state.day && t.state === 'finished' && t.table_ids.length) {
+      this.emitSeat(t);
+      return this.seatResult(t, true);
+    }
     if (t.day !== this.state.day || ['finished', 'cancelled'].includes(t.state)) {
       return { ok: false, result: 'expired', number: t.number, msg: 'Antrian sudah selesai / queue already finished' };
     }
     if (t.state === 'called') return this.seat(t);
-    if (t.state === 'seated') { this.emitSeat(t); return this.seatResult(t, true); }
     if (t.state === 'pending') {
       this.state.pending = this.state.pending.filter(x => x !== t.token);
       t.state = 'waiting';
@@ -283,9 +312,13 @@ class QueStore {
   }
 
   seat(t) {
-    for (const id of t.table_ids) this.state.holds[id] = { token: t.token, kind: 'seated' };
-    t.state = 'seated';
-    t.seated_at = this.now();
+    const now = this.now();
+    for (const id of t.table_ids) this.state.holds[id] = { token: t.token, kind: 'seated', at: now };
+    t.seated_at = now;
+    // Owner rule (2026-11-05): a scanned ticket is FINISHED - it leaves the
+    // kanban immediately (the seat TV still blinks from the event). The table
+    // stays held until ESB sees the order, staff free it, or the hold times out.
+    t.state = 'finished';
     t.revoked = true; // the public landing page dies here
     this.save();
     this.emitSeat(t);
@@ -340,9 +373,6 @@ class QueStore {
       // ESB opened a head on a seated table: the POS owns it now (handoff).
       if (h.kind === 'seated' && tbl && this.state.esb_busy.includes(tbl.esb_name)) {
         delete this.state.holds[id];
-        const t = this.ticket(h.token);
-        if (t && t.state === 'seated' &&
-            !t.table_ids.some(x => this.state.holds[x])) { t.state = 'finished'; }
         changed = true;
       }
     }
@@ -368,8 +398,7 @@ class QueStore {
       case 'table-busy': if (this.tableById(arg) && !this.state.manual_busy.includes(arg)) { this.state.manual_busy.push(arg); this.save(); this.emit('queue', {}); return { ok: true }; } break;
       case 'table-free': {
         this.state.manual_busy = this.state.manual_busy.filter(x => x !== arg);
-        const h = this.state.holds[arg];
-        if (h) { delete this.state.holds[arg]; const ht = this.ticket(h.token); if (ht && ht.state === 'seated' && !ht.table_ids.some(x => this.state.holds[x])) ht.state = 'finished'; }
+        delete this.state.holds[arg];
         this.save(); this.emit('queue', {}); this.tick(); return { ok: true };
       }
     }
@@ -384,7 +413,7 @@ class QueStore {
         pax: t.pax, wa_verified: t.wa_verified, split: t.split, position: i, state: t.state };
     }).filter(Boolean);
     const called = Object.values(this.state.tickets)
-      .filter(t => ['called', 'seated'].includes(t.state) && t.day === this.state.day)
+      .filter(t => t.state === 'called' && t.day === this.state.day)
       .sort((a, b) => b.called_at - a.called_at)
       .map(t => ({ token: t.token, number: t.number, disp: fmtNumber(t.number), name: t.name, pax: t.pax,
         state: t.state, tables: t.table_ids, called_at: t.called_at, wait_left: Math.max(0, this.noShowMs - (this.now() - t.called_at)) }));

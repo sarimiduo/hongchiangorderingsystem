@@ -106,20 +106,51 @@ test('no-show: called -> pending after 5 min, scan re-inserts at depth 2', () =>
   assert.ok(rest.length);
 });
 
-test('scan on a called ticket seats it, revokes the landing page, frees via ESB', () => {
+test('scan seats + finishes the ticket at once; table hold survives until ESB', () => {
   const { store } = mkStore();
   const a = store.register({ pax: 4, wa: '0812-3456-789' });
   store.tick();
   const seated = store.scan('https://quehong.example/q/' + a.token); // URL form
   assert.strictEqual(seated.result, 'seated');
   assert.deepStrictEqual(seated.tables, ['20']);
+  // owner rule: the ticket leaves the kanban immediately
+  assert.strictEqual(store.ticket(a.token).state, 'finished');
+  assert.strictEqual(store.overview().called.length, 0);
   const mt = store.mirror().tickets.find(x => x.token === a.token);
   assert.strictEqual(mt.revoked, true);
-  store.esbOccupancy(['20']); // ESB opens the head -> handoff finishes the ticket
-  assert.strictEqual(store.ticket(a.token).state, 'finished');
+  // but the table is NOT free yet
+  assert.strictEqual(store.tableState(store.tableById('20')), 'seated');
+  // re-scanning the finished ticket re-shows the table instead of erroring
+  assert.strictEqual(store.scan(a.token).result, 'seated');
+  store.esbOccupancy(['20']); // ESB opens the head -> handoff releases the hold
   assert.strictEqual(store.tableState(store.tableById('20')), 'busy');
   store.esbOccupancy([]); // cashier settled -> table free again
   assert.strictEqual(store.tableState(store.tableById('20')), 'free');
+});
+
+test('a seated hold without ESB handoff frees itself after the timeout', () => {
+  const { store, clock } = mkStore();
+  const a = store.register({ pax: 4 });
+  store.tick();
+  store.scan(a.token);
+  assert.strictEqual(store.tableState(store.tableById('20')), 'seated');
+  clock.t += 45 * 60 * 1000 + 1;
+  store.tick();
+  assert.strictEqual(store.tableState(store.tableById('20')), 'free');
+});
+
+test('a missed number is removed from Terlewat after pendingExpireMs', () => {
+  const { store, clock } = mkStore({ pendingExpireMs: 60 * 60 * 1000 });
+  const a = store.register({ pax: 4 });
+  store.tick();
+  clock.t += 5 * 60 * 1000 + 1; // no-show -> pending
+  store.tick();
+  assert.strictEqual(store.ticket(a.token).state, 'pending');
+  clock.t += 60 * 60 * 1000 + 1; // stayed away > 1 h -> gone
+  store.tick();
+  assert.strictEqual(store.ticket(a.token).state, 'cancelled');
+  assert.strictEqual(store.state.pending.length, 0);
+  assert.strictEqual(store.scan(a.token).result, 'expired');
 });
 
 test('WhatsApp: inbound code binds the sender number, nudges hit the outbox', () => {

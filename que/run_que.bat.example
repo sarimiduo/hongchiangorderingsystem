@@ -21,6 +21,13 @@ set QUE_WA_NUMBER=628xxxxxxxxxx
 rem voice on the displays: id | id+en
 set QUE_VOICE=id+en
 
+rem minutes a called number waits before moving to Terlewat/Missed (default 5)
+set QUE_NO_SHOW_MINUTES=2
+rem minutes a missed number stays in Terlewat before it is removed (default 60)
+set QUE_PENDING_EXPIRE_MINUTES=60
+rem minutes a table stays held after seating when ESB has not seen the order (default 45)
+rem set QUE_SEAT_HOLD_MINUTES=45
+
 rem natural woman voice (Edge neural TTS). Needs once: pip install edge-tts
 rem Voices: id-ID-GadisNeural (Bahasa) + en-US-JennyNeural (English), cached
 rem as mp3 in que\data\voice. Offline or errors fall back to browser voice.

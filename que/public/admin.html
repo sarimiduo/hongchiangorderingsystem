@@ -35,7 +35,7 @@ h1 small { color:var(--muted); font-weight:400; font-size:13px; margin-left:10px
   <div class="col"><h2>Menunggu / Waiting</h2><div id="waiting"></div></div>
   <div class="col"><h2>Dipanggil / Called</h2><div id="called"></div></div>
   <div class="col"><h2>Terlewat / Pending</h2><div id="pending"></div></div>
-  <div class="col"><h2>Duduk / Seated</h2><div id="seated"></div></div>
+  <div class="col"><h2>Meja Terisi / Seated tables</h2><div id="seated"></div></div>
 </div>
 <div class="tables">
   <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Meja (klik = tandai terisi/kosong manual)</h2>
@@ -69,11 +69,13 @@ async function refresh() {
   document.getElementById('meta').textContent =
     `${o.day} · terakhir dipanggil Q${String(o.last_called || 0).padStart(3, '0')} · WA outbox ${o.outbox_depth}`;
   document.getElementById('waiting').innerHTML = o.waiting.map(t => card(t, [['batal', 'cancel'], ['reprint', 'reprint']])).join('');
-  document.getElementById('called').innerHTML = o.called.filter(t => t.state === 'called')
+  document.getElementById('called').innerHTML = o.called
     .map(t => card(t, [['duduk', 'seated'], ['lewati', 'pending'], ['batal', 'cancel']])).join('');
   document.getElementById('pending').innerHTML = o.pending.map(t => card(t, [['antri lagi', 'requeue'], ['batal', 'cancel'], ['reprint', 'reprint']])).join('');
-  document.getElementById('seated').innerHTML = o.called.filter(t => t.state === 'seated')
-    .map(t => card(t, [['selesai', 'finish']])).join('');
+  document.getElementById('seated').innerHTML = o.tables.filter(t => t.status === 'seated')
+    .map(t => `<div class="card"><div class="n">Meja ${t.id}</div>` +
+      `<div class="meta">${t.held_by || ''} · dilepas otomatis saat ESB mencatat order</div>` +
+      `<button onclick="act('table-free','${t.id}')">bebaskan / free</button></div>`).join('');
   document.getElementById('tgrid').innerHTML = o.tables.map(t =>
     `<button class="${t.status}" title="${t.capacity} pax${t.held_by ? ' · ' + t.held_by : ''}" ` +
     `onclick="act('${t.status === 'manual' || t.status === 'busy' || t.status === 'seated' || t.status === 'held' ? 'table-free' : 'table-busy'}','${t.id}')">${t.id}</button>`).join('');

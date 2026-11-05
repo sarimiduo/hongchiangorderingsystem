@@ -92,7 +92,12 @@ function ttsGenerate(text, lang) {
 
 if (PIN === '0000') console.error('[que] WARNING: QUE_PIN is the default 0000 - set a real admin PIN');
 
-const store = new QueStore({});
+const minutes = (v, dflt) => Math.max(1, Number(v) || dflt) * 60 * 1000;
+const store = new QueStore({
+  noShowMs: minutes(process.env.QUE_NO_SHOW_MINUTES, 5),          // called -> Missed
+  pendingExpireMs: minutes(process.env.QUE_PENDING_EXPIRE_MINUTES, 60), // Missed -> gone
+  seatedTimeoutMs: minutes(process.env.QUE_SEAT_HOLD_MINUTES, 45), // table hold w/o ESB
+});
 const clients = new Set(); // SSE
 
 store.listen(ev => {
