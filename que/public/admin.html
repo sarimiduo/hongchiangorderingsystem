@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Que Admin — Edo Sushi</title>
+<title>Que Admin - Edo Sushi</title>
 <style>
 :root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
 * { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
@@ -30,7 +30,7 @@ h1 small { color:var(--muted); font-weight:400; font-size:13px; margin-left:10px
 </style>
 </head>
 <body>
-<h1>Antrian — Admin <small id="meta"></small></h1>
+<h1>Antrian Admin <small id="meta"></small></h1>
 <div class="cols">
   <div class="col"><h2>Menunggu / Waiting</h2><div id="waiting"></div></div>
   <div class="col"><h2>Dipanggil / Called</h2><div id="called"></div></div>
@@ -75,7 +75,7 @@ async function refresh() {
   document.getElementById('seated').innerHTML = o.called.filter(t => t.state === 'seated')
     .map(t => card(t, [['selesai', 'finish']])).join('');
   document.getElementById('tgrid').innerHTML = o.tables.map(t =>
-    `<button class="${t.status}" title="${t.capacity} pax${t.held_by ? ' — ' + t.held_by : ''}" ` +
+    `<button class="${t.status}" title="${t.capacity} pax${t.held_by ? ' · ' + t.held_by : ''}" ` +
     `onclick="act('${t.status === 'manual' || t.status === 'busy' || t.status === 'seated' || t.status === 'held' ? 'table-free' : 'table-busy'}','${t.id}')">${t.id}</button>`).join('');
 }
 refresh();

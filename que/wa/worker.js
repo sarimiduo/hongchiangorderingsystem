@@ -1,6 +1,6 @@
 'use strict';
 /**
- * quehong WhatsApp worker — Baileys (unofficial WhatsApp Web bridge).
+ * quehong WhatsApp worker - Baileys (unofficial WhatsApp Web bridge).
  *
  * Runs on the mini-PC next to que/server.js. First run shows a QR in the
  * terminal: scan it with the bot phone's WhatsApp (Linked devices). The
@@ -8,7 +8,7 @@
  *
  *  inbound:  any message containing an EDQ-xxxx code -> POST /api/que/wa/inbound
  *            (binds + verifies the customer's number; the reply text comes
- *            from the server). The SENDER's number is ground truth — typos
+ *            from the server). The SENDER's number is ground truth - typos
  *            from the registration tablet are auto-corrected.
  *  outbound: polls GET /api/que/wa/outbox every 3 s and sends the queued
  *            nudges ("1 group ahead", "your turn", "missed you").
@@ -51,7 +51,7 @@ async function start() {
       const code = u.lastDisconnect && u.lastDisconnect.error &&
         u.lastDisconnect.error.output && u.lastDisconnect.error.output.statusCode;
       if (code === DisconnectReason.loggedOut) {
-        console.error('[wa] logged out — delete que/wa/auth/ and re-link the phone');
+        console.error('[wa] logged out - delete que/wa/auth/ and re-link the phone');
         process.exit(1);
       }
       console.log('[wa] reconnecting (code %s)…', code);
@@ -91,7 +91,7 @@ async function start() {
         done.push(m.id); // undeliverable (no number) is dropped, not retried forever
       }
       if (done.length) await api('POST', '/api/que/wa/ack', { ids: done });
-    } catch (e) { /* server down — next poll retries */ }
+    } catch (e) { /* server down - next poll retries */ }
   }, 3000);
 }
 

@@ -1,5 +1,5 @@
 'use strict';
-/* quehong queue core — table assignment rules, no-show kanban, re-insert,
+/* quehong queue core - table assignment rules, no-show kanban, re-insert,
  * scan flow, ESB occupancy handoff, WA binding, mirror revocation. */
 
 const test = require('node:test');

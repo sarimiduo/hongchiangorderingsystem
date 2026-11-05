@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>Daftar Antrian — Edo Sushi</title>
+<title>Daftar Antrian - Edo Sushi</title>
 <style>
 :root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
 * { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
@@ -31,7 +31,7 @@ input:focus { outline:2px solid var(--ink); }
 <div class="card">
   <form id="form">
     <h1>Daftar Antrian</h1>
-    <div class="sub">Join the waiting list — Edo Sushi</div>
+    <div class="sub">Join the waiting list · Edo Sushi</div>
     <label>Nama / Name</label>
     <input id="name" autocomplete="off" maxlength="40">
     <label>Nomor WhatsApp (contoh 0812…)</label>
@@ -39,7 +39,7 @@ input:focus { outline:2px solid var(--ink); }
     <label>Jumlah tamu / Pax</label>
     <div class="pax" id="pax"></div>
     <div class="notice" id="bignote">
-      Untuk rombongan besar tanpa reservasi, mohon maaf — kami akan menempatkan
+      Untuk rombongan besar tanpa reservasi, mohon maaf, kami akan menempatkan
       rombongan Anda di meja yang tersedia, sehingga Anda mungkin tidak duduk
       berdekatan dengan keluarga/teman Anda. Terima kasih atas pengertiannya.<br><br>
       <em>For large walk-in groups we seat you at available tables, so your group
@@ -91,11 +91,11 @@ document.getElementById('form').onsubmit = async e => {
       const w = document.getElementById('donewarn'); w.style.display = 'block';
       w.textContent = 'Rombongan besar: tempat duduk Anda mungkin terpisah sesuai meja yang tersedia. / Large group: your seats may be split across available tables.';
     }
-    if (!j.data.printed) alert('Printer bermasalah — mohon panggil staf / printer problem, please call staff');
+    if (!j.data.printed) alert('Printer bermasalah, mohon panggil staf. / Printer problem, please call staff.');
     setTimeout(() => location.reload(), 20000);
   } catch (err) {
     const el = document.getElementById('err');
-    el.style.display = 'block'; el.textContent = 'Gagal: ' + err.message + ' — coba lagi / failed, try again';
+    el.style.display = 'block'; el.textContent = 'Gagal: ' + err.message + '. Coba lagi. / Failed, try again.';
     go.disabled = false;
   }
 };

@@ -2,12 +2,12 @@
 /**
  * ESC/POS ticket printing for the Epson TM-T82X (and compatibles).
  *
- * The TM-T82X prints QR codes natively (GS ( k), so the whole ticket — header,
+ * The TM-T82X prints QR codes natively (GS ( k), so the whole ticket - header,
  * queue number, QR Queue (landing URL), QR WhatsApp (wa.me deep link), notes,
- * cut — is one raw byte job. Transports (QUE_PRINT):
+ * cut - is one raw byte job. Transports (QUE_PRINT):
  *   file:<path>            append jobs to a file (dev/test; default)
  *   net:<host>:<port>      ESC/POS over TCP (Ethernet interface, port 9100)
- *   share:\\HOST\Printer   Windows shared printer — raw `copy /b` (USB on the
+ *   share:\\HOST\Printer   Windows shared printer - raw `copy /b` (USB on the
  *                          mini-PC: install the Epson driver, share it, done)
  */
 

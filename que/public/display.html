@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Antrian — Edo Sushi</title>
+<title>Antrian - Edo Sushi</title>
 <style>
 :root { --ground:#fff; --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
 * { box-sizing:border-box; margin:0; font-family:"Libre Franklin",system-ui,sans-serif; }
@@ -48,7 +48,7 @@ svg { width:100%; height:100%; }
 </head>
 <body>
 <div class="view" id="vqueue">
-  <h1>Edo Sushi — Antrian / Queue</h1>
+  <h1>Edo Sushi · Antrian / Queue</h1>
   <div class="tag">Pindai QR struk Anda di pintu masuk saat dipanggil · Scan your ticket QR at the entrance when called</div>
   <div class="board">
     <div class="col serving"><h2>Dipanggil / Now serving</h2><div class="nums" id="serving"></div></div>
@@ -57,7 +57,7 @@ svg { width:100%; height:100%; }
   </div>
 </div>
 <div class="view" id="vseat">
-  <h1>Edo Sushi — Silakan Duduk / Please Be Seated</h1>
+  <h1>Edo Sushi · Silakan Duduk / Please Be Seated</h1>
   <div class="tag" id="seattag">Denah meja / floor plan</div>
   <div class="seatwrap">
     <div class="callcard" id="callcard" style="visibility:hidden">
@@ -111,7 +111,7 @@ async function refresh() {
     `<div class="n">${c.disp}${c.state === 'seated'
       ? ` <small class="tbl">meja ${c.tables.join(',')}</small>`
       : ' <small>menuju pintu / to entrance</small>'}</div>`).join('') ||
-    '<div class="n" style="font-size:4vh;color:#888">—</div>';
+    '<div class="n" style="font-size:4vh;color:#888">...</div>';
   document.getElementById('next').innerHTML = o.waiting.slice(0, 8).map(w =>
     `<li>${w.disp}<small>${w.pax} pax</small></li>`).join('');
   document.getElementById('pending').innerHTML = o.pending.slice(0, 8).map(w =>

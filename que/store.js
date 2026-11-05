@@ -1,6 +1,6 @@
 'use strict';
 /**
- * quehong — queue/ticketing core for the walk-in waiting line (Edo Sushi).
+ * quehong - queue/ticketing core for the walk-in waiting line (Edo Sushi).
  *
  * Pure state machine + persistence, no HTTP (que/server.js owns that), so the
  * whole flow is unit-testable. Ticket life:
@@ -186,8 +186,8 @@ class QueStore {
       if (t && i <= 1 && t.wa_verified && !t.nudged && t.state === 'waiting') {
         t.nudged = true;
         this.sendWa(t, i === 0
-          ? `Giliran Anda berikutnya di ${this.storeName}! Nomor ${fmtNumber(t.number)} — mohon segera ke pintu masuk.\nYou are next — please head to the entrance now.`
-          : `Halo${t.name ? ' ' + t.name : ''}, tinggal 1 antrian lagi sebelum nomor Anda ${fmtNumber(t.number)} di ${this.storeName}. Mohon segera kembali ya.\nOnly 1 group ahead of you — please head back to the restaurant now.`);
+          ? `Giliran Anda berikutnya di ${this.storeName}! Nomor ${fmtNumber(t.number)}, mohon segera ke pintu masuk.\nYou are next, please head to the entrance now.`
+          : `Halo${t.name ? ' ' + t.name : ''}, tinggal 1 antrian lagi sebelum nomor Anda ${fmtNumber(t.number)} di ${this.storeName}. Mohon segera kembali ya.\nOnly 1 group ahead of you, please head back to the restaurant now.`);
         changed = true;
       }
     });
@@ -204,7 +204,7 @@ class QueStore {
     t.called_at = this.now();
     this.state.last_called = t.number;
     if (t.wa_verified) this.sendWa(t,
-      `Giliran Anda tiba! Nomor ${fmtNumber(t.number)}, silakan ke pintu masuk ${this.storeName} dan pindai QR antrian Anda.\nIt's your turn — come to the entrance and scan your queue QR.`);
+      `Giliran Anda tiba! Nomor ${fmtNumber(t.number)}, silakan ke pintu masuk ${this.storeName} dan pindai QR antrian Anda.\nIt's your turn! Come to the entrance and scan your queue QR.`);
     this.emit('called', { number: t.number, token: t.token });
   }
 
@@ -215,7 +215,7 @@ class QueStore {
     t.pending_at = this.now();
     this.state.pending.push(t.token);
     if (t.wa_verified) this.sendWa(t,
-      `Kami memanggil nomor ${fmtNumber(t.number)} namun belum bertemu Anda, jadi antrian dipindah sementara. Saat tiba, langsung pindai QR antrian Anda di pintu masuk ya.\nWe called your number but missed you — scan your queue QR at the entrance when you arrive.`);
+      `Kami memanggil nomor ${fmtNumber(t.number)} namun belum bertemu Anda, jadi antrian dipindah sementara. Saat tiba, langsung pindai QR antrian Anda di pintu masuk ya.\nWe called your number but missed you. Scan your queue QR at the entrance when you arrive.`);
     this.emit('queue', {});
   }
 
@@ -246,7 +246,7 @@ class QueStore {
       this.tick(); // tables may be free right now
       if (this.state.tickets[t.token].state === 'called') return this.seat(t);
       return { ok: true, result: 'requeued', number: t.number, position: at,
-        msg: `Nomor ${fmtNumber(t.number)} masuk kembali — ${at} antrian di depan Anda / re-queued, ${at} group(s) ahead` };
+        msg: `Nomor ${fmtNumber(t.number)} masuk kembali, ${at} antrian di depan Anda / re-queued, ${at} group(s) ahead` };
     }
     // waiting: a guest who walks straight in on their turn
     const idx = this.state.main.indexOf(t.token);
@@ -255,7 +255,7 @@ class QueStore {
       if (res) { this.call(t, res.tables); return this.seat(t); }
     }
     return { ok: true, result: 'waiting', number: t.number, position: idx,
-      msg: `Belum giliran Anda — ${idx} antrian di depan / not your turn yet, ${idx} group(s) ahead` };
+      msg: `Belum giliran Anda, ${idx} antrian di depan / not your turn yet, ${idx} group(s) ahead` };
   }
 
   seat(t) {
@@ -275,7 +275,7 @@ class QueStore {
 
   seatResult(t, again) {
     return { ok: true, result: 'seated', again, number: t.number, tables: t.table_ids, split: t.split,
-      msg: `Nomor ${fmtNumber(t.number)} — silakan ke meja ${t.table_ids.join(', ')} / please proceed to table ${t.table_ids.join(', ')}` };
+      msg: `Nomor ${fmtNumber(t.number)}: silakan ke meja ${t.table_ids.join(', ')} / please proceed to table ${t.table_ids.join(', ')}` };
   }
 
   // ---------------------------------------------------------------- WhatsApp
@@ -296,7 +296,7 @@ class QueStore {
     this.save();
     this.emit('queue', {});
     return { ok: true, token: t.token, reply:
-      `Terima kasih! WhatsApp Anda terhubung dengan antrian ${fmtNumber(t.number)} di ${this.storeName}. Kami akan mengabari saat giliran Anda hampir tiba.\nThank you! Your WhatsApp is now linked to queue ${fmtNumber(t.number)} — we will message you when your turn is near.` };
+      `Terima kasih! WhatsApp Anda terhubung dengan antrian ${fmtNumber(t.number)} di ${this.storeName}. Kami akan mengabari saat giliran Anda hampir tiba.\nThank you! Your WhatsApp is now linked to queue ${fmtNumber(t.number)}. We will message you when your turn is near.` };
   }
 
   pullOutbox() { return this.state.outbox.slice(0, 20); }

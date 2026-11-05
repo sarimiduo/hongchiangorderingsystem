@@ -1,7 +1,7 @@
 # /etc/systemd/system/hongchiang-que.service
 # quehong public mirror (walk-in queue landing pages).
 # NOTE on the real VPS the checkout is /home/dewa-dev/work/hongchiang-esb
-# owned by dewa-dev — adjust User/WorkingDirectory/EnvironmentFile to match.
+# owned by dewa-dev - adjust User/WorkingDirectory/EnvironmentFile to match.
 [Unit]
 Description=Edo Sushi walk-in queue public mirror (quehong)
 After=network.target

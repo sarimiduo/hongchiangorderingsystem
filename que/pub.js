@@ -1,6 +1,6 @@
 'use strict';
 /**
- * quehong public mirror — the only internet-facing piece of the queue system.
+ * quehong public mirror - the only internet-facing piece of the queue system.
  * Runs on the VPS (quehong.berkatselalu.com). Zero dependencies.
  *
  * The branch mini-PC pushes queue snapshots here (outbound HTTPS, Bearer
@@ -36,7 +36,7 @@ function saveMirror() {
 const PAGE = (body, dead) => `<!doctype html>
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Antrian — Edo Sushi</title>
+<title>Antrian - Edo Sushi</title>
 <style>
 :root { --surface:#ebebea; --ink:#1a1a1a; --muted:#6b6b6b; --accent:#b3201f; }
 * { box-sizing:border-box; margin:0; font-family:system-ui,sans-serif; }
@@ -57,13 +57,13 @@ function ticketPage(t) {
     'Tautan antrian tidak dikenal atau sudah berakhir.<br>This queue link is unknown or has expired.</div>', true);
   const head = `<h1>Edo Sushi</h1><div class="sub">Antrian Anda / your queue</div><div class="num">${t.disp}</div>`;
   if (t.revoked || ['seated', 'finished', 'cancelled'].includes(t.state)) {
-    return PAGE(head + '<div class="state done">Antrian selesai — selamat menikmati!<br>Queue finished — enjoy your meal.</div>', true);
+    return PAGE(head + '<div class="state done">Antrian selesai, selamat menikmati!<br>Queue finished. Enjoy your meal.</div>', true);
   }
   if (t.state === 'called') {
-    return PAGE(head + `<div class="state"><b>GILIRAN ANDA!</b> Silakan ke pintu masuk dan pindai QR struk Anda.<br>It's your turn — go to the entrance and scan your ticket QR.</div>`);
+    return PAGE(head + `<div class="state"><b>GILIRAN ANDA!</b> Silakan ke pintu masuk dan pindai QR struk Anda.<br>It's your turn! Go to the entrance and scan your ticket QR.</div>`);
   }
   if (t.state === 'pending') {
-    return PAGE(head + `<div class="state">Nomor Anda sempat terlewat. Saat tiba di restoran, langsung pindai QR struk Anda di pintu masuk — Anda masuk kembali dekat urutan depan.<br>Your number was missed — scan your ticket QR at the entrance when you arrive and you re-enter near the front.</div>`);
+    return PAGE(head + `<div class="state">Nomor Anda sempat terlewat. Saat tiba di restoran, langsung pindai QR struk Anda di pintu masuk. Anda masuk kembali dekat urutan depan.<br>Your number was missed. Scan your ticket QR at the entrance when you arrive and you re-enter near the front.</div>`);
   }
   return PAGE(head +
     `<div class="lbl">Antrian di depan Anda / groups ahead</div><div class="ahead">${t.ahead}</div>` +
@@ -91,7 +91,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, ticketPage(t), 'text/html; charset=utf-8');
     }
     if (req.method === 'GET' && url.pathname === '/') {
-      return send(res, 200, PAGE('<h1>Edo Sushi</h1><div class="state done">Antrian walk-in — pindai QR pada struk antrian Anda.<br>Walk-in queue — scan the QR on your queue ticket.</div>', true), 'text/html; charset=utf-8');
+      return send(res, 200, PAGE('<h1>Edo Sushi</h1><div class="state done">Antrian walk-in: pindai QR pada struk antrian Anda.<br>Walk-in queue: scan the QR on your queue ticket.</div>', true), 'text/html; charset=utf-8');
     }
     return send(res, 404, { status: false, msg: 'not_found' });
   } catch (e) {

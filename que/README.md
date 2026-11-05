@@ -1,9 +1,9 @@
-# quehong — Edo Sushi walk-in queue (ticketing) system
+# quehong - Edo Sushi walk-in queue (ticketing) system
 
 A LAN-first queue system for the branch: guests register on a tablet, get a
 printed ticket with two QR codes, wait wherever they like (WhatsApp calls them
-back), scan at the entrance, and the TVs show the queue and the exact table —
-blinking on the floor plan — with a Bahasa (+ English) voice call. Seating
+back), scan at the entrance, and the TVs show the queue and the exact table -
+blinking on the floor plan - with a Bahasa (+ English) voice call. Seating
 follows REAL table occupancy from the ESB POS via the bridge agent.
 
 ```
@@ -21,16 +21,16 @@ queue still works.
 
 ## Pieces
 
-- `server.js` — the local server (mini-PC). Pages: `/register` (tablet),
+- `server.js` - the local server (mini-PC). Pages: `/register` (tablet),
   `/display?view=queue` (Showing Queue TV), `/display?view=seat` (Showing Seat
   TV: floor plan + blinking table + voice), `/display?view=auto` (single TV),
   `/scan` (USB scanner station), `/admin` (staff kanban, PIN).
-- `store.js` — queue state machine (see "Rules" below), persisted to
+- `store.js` - queue state machine (see "Rules" below), persisted to
   `data/que_state.json` (survives restarts/power cuts).
-- `printer.js` — ESC/POS with native QR for the Epson TM-T82X.
-- `wa/worker.js` — Baileys WhatsApp worker (unofficial; see its header).
-- `pub.js` — the VPS public mirror; deploy per `DEPLOY_VPS.md`.
-- `data/tables.json` — table inventory + floor-plan coordinates. **Edit the
+- `printer.js` - ESC/POS with native QR for the Epson TM-T82X.
+- `wa/worker.js` - Baileys WhatsApp worker (unofficial; see its header).
+- `pub.js` - the VPS public mirror; deploy per `DEPLOY_VPS.md`.
+- `data/tables.json` - table inventory + floor-plan coordinates. **Edit the
   capacities to match reality** (counter 01–16 = 1 pax; the 2/4-pax split of
   tables 20–60 is a first guess). `id` must equal `ms_table.tableName` in ESB
   (or set `esb_name` per table) so the agent's occupancy feed matches.
@@ -41,7 +41,7 @@ queue still works.
   than `upsizeReserve` of them stay free), 3 → 4-seater, > largest table →
   split across tables + the bilingual "your group may be seated apart" notice
   (tablet + printed ticket).
-- A party that cannot be seated reserves its table class — smaller parties
+- A party that cannot be seated reserves its table class - smaller parties
   flow past it, same-class parties wait behind it (no starvation).
 - Called + no scan in 5 min → **Pending** kanban (table released, WA notice).
   When they arrive and scan, they re-enter the main queue at position 2
@@ -50,7 +50,7 @@ queue still works.
   voice), landing page revoked, next number called automatically.
 - WhatsApp QR = `wa.me/<bot>?text=EDQ-xxxx`; the guest sends it, the sender's
   number is bound + verified (tablet typos auto-corrected). Nudges: "1 group
-  ahead — come back now", "your turn", "we missed you".
+  ahead - come back now", "your turn", "we missed you".
 - Voice: browser TTS on the display, `id-ID` first; set `QUE_VOICE=id+en` for
   an English repeat.
 
@@ -89,9 +89,9 @@ queue still works.
    node worker.js
    ```
 
-   First run prints a QR in the terminal — scan it from the bot phone's
+   First run prints a QR in the terminal - scan it from the bot phone's
    WhatsApp → Linked devices. The session persists in `que\wa\auth\`
-   (gitignored — treat it as a credential).
+   (gitignored - treat it as a credential).
 6. **Agent feed:** add to `agent.ini` on the same machine:
 
    ```ini

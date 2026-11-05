@@ -1,5 +1,5 @@
 @echo off
-rem quehong local server — Windows mini-PC launcher.
+rem quehong local server - Windows mini-PC launcher.
 rem COPY this file to e.g. C:\hcbridge\run_que.bat and fill in the values;
 rem never commit the filled copy (QUE_TOKEN is a secret).
 cd /d C:\hcbridge\repo

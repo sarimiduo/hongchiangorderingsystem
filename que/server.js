@@ -1,6 +1,6 @@
 'use strict';
 /**
- * quehong local server — runs on the branch mini-PC (same box as the ESB
+ * quehong local server - runs on the branch mini-PC (same box as the ESB
  * bridge agent). Serves, over the LAN:
  *   /register   the registration tablet (name | WhatsApp | pax -> prints ticket)
  *   /display    TV screens: ?view=queue (Showing Queue) | ?view=seat (Showing
@@ -37,7 +37,7 @@ const WA_NUMBER = (process.env.QUE_WA_NUMBER || '').replace(/[^\d]/g, '');
 const VOICE = process.env.QUE_VOICE || 'id';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-if (PIN === '0000') console.error('[que] WARNING: QUE_PIN is the default 0000 — set a real admin PIN');
+if (PIN === '0000') console.error('[que] WARNING: QUE_PIN is the default 0000 - set a real admin PIN');
 
 const store = new QueStore({});
 const clients = new Set(); // SSE
