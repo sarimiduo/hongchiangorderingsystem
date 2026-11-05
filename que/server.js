@@ -51,27 +51,43 @@ const TTS_VOICES = {
 const PYTHON = process.env.QUE_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const VOICE_DIR = path.join(__dirname, 'data', 'voice');
 
+const ttsInflight = new Map(); // file -> Promise, so concurrent displays share one render
+
 function ttsGenerate(text, lang) {
   const voice = TTS_VOICES[lang] || TTS_VOICES.id;
   const file = path.join(VOICE_DIR, crypto.createHash('sha1').update(voice + '|' + text).digest('hex') + '.mp3');
   if (fs.existsSync(file)) return Promise.resolve(file);
+  if (ttsInflight.has(file)) return ttsInflight.get(file);
   fs.mkdirSync(VOICE_DIR, { recursive: true });
-  return new Promise((resolve, reject) => {
-    const tmp = file + '.part';
+  const job = new Promise((resolve, reject) => {
+    // Unique temp name: two renders of the same text must never share a file
+    // (Windows holds locks and renameSync EBUSY would otherwise crash us).
+    const tmp = file + '.' + process.pid + '.' + crypto.randomBytes(3).toString('hex') + '.part';
     const p = spawn(PYTHON, ['-m', 'edge_tts', '--voice', voice, '--text', text, '--write-media', tmp]);
     let err = '';
     p.stderr.on('data', d => { err += d; });
     p.on('error', reject);
     p.on('close', code => {
-      if (code === 0 && fs.existsSync(tmp) && fs.statSync(tmp).size > 0) {
-        fs.renameSync(tmp, file);
-        resolve(file);
-      } else {
+      try {
+        if (code === 0 && fs.existsSync(tmp) && fs.statSync(tmp).size > 0) {
+          if (!fs.existsSync(file)) fs.renameSync(tmp, file);
+          else fs.rmSync(tmp, { force: true }); // another render won the race
+          resolve(file);
+        } else {
+          fs.rmSync(tmp, { force: true });
+          reject(new Error('edge-tts exit ' + code + ': ' + err.slice(-180)));
+        }
+      } catch (e) {
+        // EBUSY and friends: never let a file lock kill the server. If the
+        // final file exists (whoever holds the lock produced it), use it.
         fs.rm(tmp, { force: true }, () => {});
-        reject(new Error('edge-tts exit ' + code + ': ' + err.slice(-180)));
+        if (fs.existsSync(file)) resolve(file); else reject(e);
       }
     });
   });
+  ttsInflight.set(file, job);
+  job.finally(() => ttsInflight.delete(file)).catch(() => {});
+  return job;
 }
 
 if (PIN === '0000') console.error('[que] WARNING: QUE_PIN is the default 0000 - set a real admin PIN');
