@@ -76,9 +76,12 @@ document.getElementById('form').onsubmit = async e => {
   e.preventDefault();
   const go = document.getElementById('go'); go.disabled = true;
   try {
+    // explicit lookups: an implicit global `name` is shadowed by window.name
+    const nameEl = document.getElementById('name');
+    const waEl = document.getElementById('wa');
     const r = await fetch('/api/que/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.value.trim(), wa: wa.value.trim(), pax }),
+      body: JSON.stringify({ name: nameEl.value.trim(), wa: waEl.value.trim(), pax }),
     });
     const j = await r.json();
     if (!j.status) throw new Error(j.msg || 'failed');
