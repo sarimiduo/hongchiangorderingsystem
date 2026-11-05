@@ -151,16 +151,27 @@ function utter(text, lang) {
   u.rate = 0.92;
   speechSynthesis.speak(u);
 }
-function speak(ev) {
-  const tbl = ev.tables.join(', meja ');
-  utter(`Nomor antrian ${ev.number}. Silakan menuju meja ${tbl}.`, 'id-ID');
-  if ((cfg.voice || 'id').includes('en'))
-    utter(`Queue number ${ev.number}, please proceed to table ${ev.tables.join(', and table ')}.`, 'en-US');
+// Server-rendered neural voice when available (QUE_TTS=edge), browser voice
+// otherwise or whenever the mp3 cannot be fetched/played.
+function say(text, lang) {
+  return new Promise(done => {
+    if (!cfg || cfg.tts !== 'edge') { utter(text, lang); return done(); }
+    const a = new Audio('/api/que/voice?lang=' + lang.slice(0, 2) + '&text=' + encodeURIComponent(text));
+    a.onended = done;
+    a.onerror = () => { utter(text, lang); done(); };
+    a.play().catch(() => { utter(text, lang); done(); });
+  });
 }
-function announceCalled(number) {
-  utter(`Nomor antrian ${number}. Silakan ke pintu masuk.`, 'id-ID');
+async function speak(ev) {
+  const tbl = ev.tables.join(', meja ');
+  await say(`Nomor antrian ${ev.number}. Silakan menuju meja ${tbl}.`, 'id-ID');
   if ((cfg.voice || 'id').includes('en'))
-    utter(`Queue number ${number}, please come to the entrance.`, 'en-US');
+    await say(`Queue number ${ev.number}, please proceed to table ${ev.tables.join(', and table ')}.`, 'en-US');
+}
+async function announceCalled(number) {
+  await say(`Nomor antrian ${number}. Silakan ke pintu masuk.`, 'id-ID');
+  if ((cfg.voice || 'id').includes('en'))
+    await say(`Queue number ${number}, please come to the entrance.`, 'en-US');
 }
 speechSynthesis.getVoices(); // warm the voice list
 boot();

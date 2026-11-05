@@ -21,6 +21,12 @@ set QUE_WA_NUMBER=628xxxxxxxxxx
 rem voice on the displays: id | id+en
 set QUE_VOICE=id+en
 
+rem natural woman voice (Edge neural TTS). Needs once: pip install edge-tts
+rem Voices: id-ID-GadisNeural (Bahasa) + en-US-JennyNeural (English), cached
+rem as mp3 in que\data\voice. Offline or errors fall back to browser voice.
+rem Remove the line (or set to browser) to use the plain browser voice.
+set QUE_TTS=edge
+
 rem printer: share:\\localhost\TMT82X (shared Epson driver, USB) or
 rem net:<printer-ip>:9100 (Ethernet). Unset = jobs append to a dev file.
 rem set QUE_PRINT=share:\\localhost\TMT82X

@@ -23,6 +23,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { send, readBody } = require('../server/http-util');
 const { QueStore, fmtNumber } = require('./store');
 const printer = require('./printer');
@@ -36,6 +38,41 @@ const TOKEN = process.env.QUE_TOKEN || '';
 const WA_NUMBER = (process.env.QUE_WA_NUMBER || '').replace(/[^\d]/g, '');
 const VOICE = process.env.QUE_VOICE || 'id';
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// Natural neural voices (QUE_TTS=edge): the server renders each call line to
+// mp3 via `python -m edge_tts` (pip install edge-tts), cached per utterance in
+// data/voice/. The displays fall back to the browser voice when this is off,
+// fails, or the internet is down.
+const TTS = (process.env.QUE_TTS || 'browser').toLowerCase();
+const TTS_VOICES = {
+  id: process.env.QUE_TTS_VOICE_ID || 'id-ID-GadisNeural',   // woman, Bahasa
+  en: process.env.QUE_TTS_VOICE_EN || 'en-US-JennyNeural',   // woman, English
+};
+const PYTHON = process.env.QUE_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+const VOICE_DIR = path.join(__dirname, 'data', 'voice');
+
+function ttsGenerate(text, lang) {
+  const voice = TTS_VOICES[lang] || TTS_VOICES.id;
+  const file = path.join(VOICE_DIR, crypto.createHash('sha1').update(voice + '|' + text).digest('hex') + '.mp3');
+  if (fs.existsSync(file)) return Promise.resolve(file);
+  fs.mkdirSync(VOICE_DIR, { recursive: true });
+  return new Promise((resolve, reject) => {
+    const tmp = file + '.part';
+    const p = spawn(PYTHON, ['-m', 'edge_tts', '--voice', voice, '--text', text, '--write-media', tmp]);
+    let err = '';
+    p.stderr.on('data', d => { err += d; });
+    p.on('error', reject);
+    p.on('close', code => {
+      if (code === 0 && fs.existsSync(tmp) && fs.statSync(tmp).size > 0) {
+        fs.renameSync(tmp, file);
+        resolve(file);
+      } else {
+        fs.rm(tmp, { force: true }, () => {});
+        reject(new Error('edge-tts exit ' + code + ': ' + err.slice(-180)));
+      }
+    });
+  });
+}
 
 if (PIN === '0000') console.error('[que] WARNING: QUE_PIN is the default 0000 - set a real admin PIN');
 
@@ -123,7 +160,21 @@ async function handleApi(req, res, url) {
   if (req.method === 'GET' && route === 'overview') return send(res, 200, store.overview());
   if (req.method === 'GET' && route === 'config') {
     const inv = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'tables.json'), 'utf8'));
-    return send(res, 200, { store: store.storeName, voice: VOICE, view: inv.view, tables: inv.tables });
+    return send(res, 200, { store: store.storeName, voice: VOICE, tts: TTS, view: inv.view, tables: inv.tables });
+  }
+  if (req.method === 'GET' && route === 'voice') {
+    if (TTS !== 'edge') return send(res, 404, { ok: false, msg: 'tts off' });
+    const text = (url.searchParams.get('text') || '').trim().slice(0, 200);
+    const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'id';
+    if (!text) return send(res, 400, { ok: false, msg: 'no text' });
+    try {
+      const data = fs.readFileSync(await ttsGenerate(text, lang));
+      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'max-age=86400' });
+      return res.end(data);
+    } catch (e) {
+      console.error('[que] tts failed (display falls back to browser voice):', e.message);
+      return send(res, 503, { ok: false, msg: e.message });
+    }
   }
   if (req.method === 'GET' && route === 'events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });

@@ -8,6 +8,7 @@ agent/agent.ini
 agent_state.json
 
 # quehong runtime state + WhatsApp session credentials
+que/data/voice/
 que/data/que_state.json
 que/data/pub_mirror.json
 que/data/printer-out.bin

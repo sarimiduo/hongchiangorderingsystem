@@ -51,8 +51,11 @@ queue still works.
 - WhatsApp QR = `wa.me/<bot>?text=EDQ-xxxx`; the guest sends it, the sender's
   number is bound + verified (tablet typos auto-corrected). Nudges: "1 group
   ahead - come back now", "your turn", "we missed you".
-- Voice: browser TTS on the display, `id-ID` first; set `QUE_VOICE=id+en` for
-  an English repeat.
+- Voice: with `QUE_TTS=edge` the server renders each call through Microsoft
+  Edge neural TTS (`pip install edge-tts` once; woman's voices
+  id-ID-GadisNeural + en-US-JennyNeural, mp3s cached in `data/voice/`),
+  falling back to the plain browser voice when offline. `QUE_VOICE=id+en`
+  adds an English repeat after the Bahasa call.
 
 ## Mini-PC setup (Windows, same box as the ESB bridge agent)
 
