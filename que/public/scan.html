@@ -42,8 +42,7 @@ function beep(ok) {
   } catch (e) {}
 }
 
-inp.addEventListener('keydown', async e => {
-  if (e.key !== 'Enter') return;
+async function submitScan() {
   const data = inp.value.trim(); inp.value = '';
   if (!data) return;
   const r = await fetch('/api/que/scan', {
@@ -51,6 +50,16 @@ inp.addEventListener('keydown', async e => {
     body: JSON.stringify({ data }),
   }).then(r => r.json()).catch(() => ({ ok: false, result: 'error', msg: 'server error' }));
   show(r);
+}
+let idleTimer = null;
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { clearTimeout(idleTimer); submitScan(); }
+});
+// Scanners without an Enter/CR suffix: submit once the burst of keystrokes
+// stops (a human cannot type a 20-char token in 400 ms, a scanner always does).
+inp.addEventListener('input', () => {
+  clearTimeout(idleTimer);
+  if (inp.value.length >= 8) idleTimer = setTimeout(submitScan, 400);
 });
 
 function show(r) {
