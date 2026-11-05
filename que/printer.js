@@ -89,9 +89,13 @@ function printRaw(buf, target) {
       const share = target.slice(6);
       const tmp = path.join(os.tmpdir(), `que-print-${Date.now()}.bin`);
       fs.writeFileSync(tmp, buf);
-      execFile('cmd.exe', ['/c', 'copy', '/b', tmp, share], err => {
+      execFile('cmd.exe', ['/c', 'copy', '/b', tmp, share], (err, stdout, stderr) => {
         fs.unlink(tmp, () => {});
-        err ? reject(err) : resolve();
+        if (!err) return resolve();
+        // Surface what `copy` actually said (share name wrong, access denied,
+        // network name not found) instead of a generic exit-code message.
+        const detail = (String(stderr || '') + ' ' + String(stdout || '')).trim();
+        reject(new Error('copy to ' + share + ' failed: ' + (detail || err.message)));
       });
     } else reject(new Error('bad QUE_PRINT target: ' + target));
   });
