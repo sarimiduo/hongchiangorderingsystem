@@ -68,10 +68,10 @@ async function refresh() {
   const o = await (await fetch('/api/que/overview')).json();
   document.getElementById('meta').textContent =
     `${o.day} · terakhir dipanggil Q${String(o.last_called || 0).padStart(3, '0')} · WA outbox ${o.outbox_depth}`;
-  document.getElementById('waiting').innerHTML = o.waiting.map(t => card(t, [['batal', 'cancel'], ['reprint', 'reprint']])).join('');
+  document.getElementById('waiting').innerHTML = o.waiting.map(t => card(t, [['pindai', 'scan'], ['batal', 'cancel'], ['reprint', 'reprint']])).join('');
   document.getElementById('called').innerHTML = o.called
-    .map(t => card(t, [['duduk', 'seated'], ['lewati', 'pending'], ['batal', 'cancel']])).join('');
-  document.getElementById('pending').innerHTML = o.pending.map(t => card(t, [['antri lagi', 'requeue'], ['batal', 'cancel'], ['reprint', 'reprint']])).join('');
+    .map(t => card(t, [['pindai (masuk)', 'scan'], ['lewati', 'pending'], ['batal', 'cancel']])).join('');
+  document.getElementById('pending').innerHTML = o.pending.map(t => card(t, [['pindai (antri lagi)', 'scan'], ['batal', 'cancel'], ['reprint', 'reprint']])).join('');
   document.getElementById('seated').innerHTML = o.tables.filter(t => t.status === 'seated')
     .map(t => `<div class="card"><div class="n">Meja ${t.id}</div>` +
       `<div class="meta">${t.held_by || ''} · dilepas otomatis saat ESB mencatat order</div>` +

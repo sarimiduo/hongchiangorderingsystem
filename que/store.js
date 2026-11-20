@@ -384,6 +384,8 @@ class QueStore {
   admin(op, arg) {
     const t = arg && this.ticket(arg);
     switch (op) {
+      // Same code path as the physical QR scanner - for testing without one.
+      case 'scan': return this.scan(arg);
       case 'pending': if (t && t.state === 'called') { this.toPending(t); this.save(); return { ok: true }; } break;
       case 'cancel': if (t) {
         this.releaseHolds(t);
