@@ -30,13 +30,13 @@ function mkStore(opts = {}) {
   return { store, clock };
 }
 
-test('couple gets two adjacent counter stools, single gets one', () => {
+test('2+ pax fill the mandatory zone first; singles take the counter', () => {
   const { store } = mkStore();
   const duo = store.register({ name: 'Couple', pax: 2 });
   const solo = store.register({ name: 'Solo', pax: 1 });
   store.tick();
-  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['01', '02']);
-  assert.deepStrictEqual(store.ticket(solo.token).table_ids, ['03']);
+  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['20']); // main zone, not the counter
+  assert.deepStrictEqual(store.ticket(solo.token).table_ids, ['01']);
 });
 
 test('floor 4-seater holds up to 6 pax; priority-1 fills before priority-2', () => {
@@ -52,18 +52,16 @@ test('floor 4-seater holds up to 6 pax; priority-1 fills before priority-2', () 
   assert.strictEqual(store.ticket(five.token).split, false);
 });
 
-test('couple overflows to a floor table only when no stool pair is free', () => {
+test('couple overflows to the counter pair only when the mains are full', () => {
   const { store } = mkStore();
-  store.admin('table-busy', '02'); // 01 and 03 free but NOT adjacent pair? 01-02 broken, 02-03 broken
+  for (const id of ['20', '21', '46']) store.admin('table-busy', id); // mains full
   const duo = store.register({ pax: 2 });
   store.tick();
-  // no adjacent pair -> floor table, reserve respected (3 floor tables free > 1)
-  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['20']);
-  // with only one floor table left, the next couple (also without a pair) waits
-  store.admin('table-busy', '21');
+  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['01', '02']);
+  // counter pair broken AND mains full -> the next couple waits
   const duo2 = store.register({ pax: 2 });
   store.tick();
-  assert.strictEqual(store.ticket(duo2.token).state, 'waiting');
+  assert.strictEqual(store.ticket(duo2.token).state, 'waiting'); // only '03' left, no pair
 });
 
 test('big party splits across floor tables, priority zone first', () => {
@@ -177,22 +175,23 @@ test('unknown scans and finished tickets are rejected', () => {
   assert.strictEqual(store.scan(a.token).result, 'expired');
 });
 
-test('couple prefers a 2-seater over a priority-1 6-top when the counter is full', () => {
-  // Real-floor shape: counter full, zone-1 6-tops free, zone-2 2-seaters free.
+test('couple: mandatory 6-top while free, then the 55-60 two-seater, then counter', () => {
+  // Real-floor shape: counter free, zone-1 6-tops, zone-2 2-seater.
   const inv = [
     { id: '01', capacity: 1, zone: 'counter', x: 900 },
+    { id: '02', capacity: 1, zone: 'counter', x: 900 },
     { id: '20', capacity: 6, max_pax: 6, priority: 1 },
-    { id: '21', capacity: 6, max_pax: 6, priority: 1 },
     { id: '55', capacity: 2, max_pax: 2, priority: 2 },
   ];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'que-'));
   const store = new QueStore({ file: path.join(dir, 's.json'), tables: inv });
-  store.admin('table-busy', '01');
-  const duo = store.register({ pax: 2 });
-  const five = store.register({ pax: 5 });
+  const a = store.register({ pax: 2 });
+  const b = store.register({ pax: 2 });
+  const c = store.register({ pax: 2 });
   store.tick();
-  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['55']); // not the 6-top
-  assert.deepStrictEqual(store.ticket(five.token).table_ids, ['20']); // zone 1 first
+  assert.deepStrictEqual(store.ticket(a.token).table_ids, ['20']);        // mandatory zone first
+  assert.deepStrictEqual(store.ticket(b.token).table_ids, ['55']);        // mains full -> 2-seater
+  assert.deepStrictEqual(store.ticket(c.token).table_ids, ['01', '02']);  // then the counter pair
 });
 
 test('normalizeWa converts Indonesian local format', () => {

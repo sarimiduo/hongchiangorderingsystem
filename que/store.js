@@ -149,44 +149,47 @@ class QueStore {
   }
 
   /** Pick table(s) for a party. Returns {tables:[ids], split} or null.
-   * Owner rules (2026-11-05): counter 01-16 serves 1-2 pax (couples on two
-   * adjacent stools); floor 4-seaters hold up to their max_pax (6); the
-   * priority-1 zone (20-45) fills before priority-2 (46-60); larger parties
-   * split across floor tables, priority zone first. */
+   * Owner rules (final 2026-11-20): EVERY party of 2+ pax fills the
+   * mandatory zone first (priority-1 6-tops, 20-54); when the mains are
+   * full a couple overflows to a 55-60 two-seater, then to two adjacent
+   * counter stools. Singles use the counter (then a 2-seater; a big table
+   * only under the reserve guard). Larger parties split across floor
+   * tables, mandatory zone first, never the counter. */
   assignFor(pax, blocked) {
     blocked = blocked || new Set();
     const free = this.freeTables();
     const num = id => parseInt(id, 10);
     const counter = free.filter(t => t.zone === 'counter');
-    // Smallest fitting table first (a couple takes a 2-seater before a
-    // 6-top, whatever its zone), then the owner's zone priority.
-    const floor = free.filter(t => t.zone !== 'counter').sort((a, b) =>
-      a.capacity - b.capacity || (a.priority || 1) - (b.priority || 1) || num(a.id) - num(b.id));
+    const fit = free.filter(t => t.zone !== 'counter' && pax <= (t.max_pax || t.capacity))
+      .sort((a, b) => (a.priority || 1) - (b.priority || 1) || a.capacity - b.capacity || num(a.id) - num(b.id));
 
-    if (pax <= 2 && !blocked.has('counter')) {
-      if (pax === 1 && counter.length) {
+    if (pax === 1) {
+      if (!blocked.has('counter') && counter.length) {
         const seat = counter.slice().sort((a, b) => num(a.id) - num(b.id))[0];
         return { tables: [seat.id], split: false };
       }
-      if (pax === 2) {
-        const pair = this.counterPair(counter);
-        if (pair) return { tables: pair, split: false };
-      }
-    }
-    if (blocked.has('floor')) return null;
-    if (pax <= this.floorMaxFit()) {
-      for (const t of floor) {
-        if (pax > (t.max_pax || t.capacity)) continue;
-        // 1-2 pax take a BIG table only while more than `upsizeReserve` big
-        // floor tables stay free for groups; right-sized tables are free game.
-        if (pax <= 2 && t.capacity >= 4 &&
-            floor.filter(x => x.capacity >= 4).length <= this.upsizeReserve) continue;
-        return { tables: [t.id], split: false };
+      if (!blocked.has('floor')) {
+        for (const t of fit) {
+          // a single takes a big table only while big tables are plentiful
+          if (t.capacity >= 4 && fit.filter(x => x.capacity >= 4).length <= this.upsizeReserve) continue;
+          return { tables: [t.id], split: false };
+        }
       }
       return null;
     }
-    // Split party: floor tables only, priority zone first, biggest first.
-    const desc = floor.slice().sort((a, b) =>
+
+    if (pax <= this.floorMaxFit()) {
+      if (!blocked.has('floor') && fit.length) return { tables: [fit[0].id], split: false };
+      if (pax === 2 && !blocked.has('counter')) {
+        const pair = this.counterPair(counter);
+        if (pair) return { tables: pair, split: false };
+      }
+      return null;
+    }
+
+    // Split party: floor tables only, mandatory zone first, biggest first.
+    if (blocked.has('floor')) return null;
+    const desc = free.filter(t => t.zone !== 'counter').sort((a, b) =>
       (a.priority || 1) - (b.priority || 1) || b.capacity - a.capacity || num(a.id) - num(b.id));
     const pick = []; let sum = 0;
     for (const t of desc) { pick.push(t.id); sum += t.capacity; if (sum >= pax) break; }

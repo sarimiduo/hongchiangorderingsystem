@@ -1,6 +1,6 @@
 {
  "store": "Edo Sushi",
- "note": "Owner capacities 2026-11-20: counter 01-16 = 1 pax; tables 20-54 = 6 pax; 55-60 = 2 pax. Priority 1 (20-45) fills before priority 2 (46-60); couples prefer counter pair, then a 2-seater, then a 6-top. capacity/x/y editable; id must match ms_table.tableName.",
+ "note": "Owner rules 2026-11-20: counter 01-16 = 1 pax; 20-54 = 6-pax MANDATORY zone (priority 1, every party >= 2 pax fills it first); 55-60 = 2-pax overflow (priority 2); couples use 55-60/counter pair only when the mains are full; singles use the counter. id must match ms_table.tableName.",
  "view": {
   "w": 1000,
   "h": 700
@@ -395,7 +395,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "47",
@@ -406,7 +406,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "48",
@@ -417,7 +417,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "49",
@@ -428,7 +428,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "50",
@@ -439,7 +439,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "51",
@@ -450,7 +450,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "52",
@@ -461,7 +461,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "53",
@@ -472,7 +472,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "54",
@@ -483,7 +483,7 @@
    "w": 62,
    "h": 66,
    "max_pax": 6,
-   "priority": 2
+   "priority": 1
   },
   {
    "id": "55",

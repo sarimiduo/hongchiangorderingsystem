@@ -335,19 +335,19 @@ than QUE_PENDING_EXPIRE_MINUTES (default 60) is auto-cancelled with a WA
 notice. Display board: "Berikutnya" = waiting tickets (shows only when
 tables are full); Next/Missed lists longer than 8 rows loop in 6 s pages
 (TVs cannot scroll). Seat mapping
-(OWNER RULES, capacities final 2026-11-20, encoded in tables.json
-priority/capacity + store.assignFor): counter 01–16 (capacity 1) serves 1–2
-pax — a couple gets TWO ADJACENT stools (same column, consecutive numbers);
-tables 20–54 seat 6, tables 55–60 seat 2; priority-1 zone 20–45 is
-mandatory fill-first, priority-2 zone 46–60 opens when zone 1 is full —
-EXCEPT that assignment picks the smallest fitting capacity first, so a
-couple overflowing the counter takes a 55–60 two-seater before any 6-top
-(priority breaks ties within a capacity); 1–2 pax take a big (cap ≥ 4)
-table only while more than upsizeReserve(=1) big floor tables stay free;
-> 6 pax → greedy split across floor tables (priority zone first, counter
-never) + bilingual apology (printed + tablet, register.html threshold
-pax > 6); a blocked party reserves its seating class ('counter'/'floor',
-needClasses) so it can't be starved while other classes flow past. Occupancy: agent [que] url →
+(OWNER RULES, final 2026-11-20, encoded in tables.json priority/capacity +
+store.assignFor): tables 20–54 seat 6 and are THE MANDATORY ZONE
+(priority 1) — EVERY party of 2+ pax fills it first while the restaurant
+has space (couples included; the owner corrected the earlier
+couples-to-counter rule). When the mains are full, a couple overflows to a
+55–60 two-seater (capacity 2, priority 2), then to TWO ADJACENT counter
+stools (same column, consecutive numbers). Singles (1 pax) use the counter
+01–16 (capacity 1) first, then a 2-seater; a big (cap ≥ 4) table only
+while more than upsizeReserve(=1) big tables stay free. > 6 pax → greedy
+split across floor tables (mandatory zone first, counter never) +
+bilingual apology (printed + tablet, register.html threshold pax > 6); a
+blocked party reserves its seating class ('counter'/'floor', needClasses)
+so it can't be starved while other classes flow past. Occupancy: agent [que] url →
 POST /api/que/esb-occupancy {busy: [tableName]} from open ESB heads
 (OPEN_STATUS_IDS, 60 s keepalive); ESB opening a head on a seated table
 "hands off" the hold and finishes the ticket; manual busy/free in /admin is
