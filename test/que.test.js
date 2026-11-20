@@ -175,8 +175,7 @@ test('unknown scans and finished tickets are rejected', () => {
   assert.strictEqual(store.scan(a.token).result, 'expired');
 });
 
-test('couple: mandatory 6-top while free, then the 55-60 two-seater, then counter', () => {
-  // Real-floor shape: counter free, zone-1 6-tops, zone-2 2-seater.
+test('zone order for a couple: mains, then counter pair, then 55-60 last', () => {
   const inv = [
     { id: '01', capacity: 1, zone: 'counter', x: 900 },
     { id: '02', capacity: 1, zone: 'counter', x: 900 },
@@ -189,9 +188,9 @@ test('couple: mandatory 6-top while free, then the 55-60 two-seater, then counte
   const b = store.register({ pax: 2 });
   const c = store.register({ pax: 2 });
   store.tick();
-  assert.deepStrictEqual(store.ticket(a.token).table_ids, ['20']);        // mandatory zone first
-  assert.deepStrictEqual(store.ticket(b.token).table_ids, ['55']);        // mains full -> 2-seater
-  assert.deepStrictEqual(store.ticket(c.token).table_ids, ['01', '02']);  // then the counter pair
+  assert.deepStrictEqual(store.ticket(a.token).table_ids, ['20']);        // zone 1: mandatory 6-top
+  assert.deepStrictEqual(store.ticket(b.token).table_ids, ['01', '02']);  // zone 2: counter pair
+  assert.deepStrictEqual(store.ticket(c.token).table_ids, ['55']);        // zone 3: 2-seater last
 });
 
 test('a single never takes a main-zone table, and does not block the groups behind', () => {

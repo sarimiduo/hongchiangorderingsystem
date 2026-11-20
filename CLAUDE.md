@@ -339,9 +339,11 @@ tables are full); Next/Missed lists longer than 8 rows loop in 6 s pages
 store.assignFor): tables 20–54 seat 6 and are THE MANDATORY ZONE
 (priority 1) — EVERY party of 2+ pax fills it first while the restaurant
 has space (couples included; the owner corrected the earlier
-couples-to-counter rule). When the mains are full, a couple overflows to a
-55–60 two-seater (capacity 2, priority 2), then to TWO ADJACENT counter
-stools (same column, consecutive numbers). Singles (1 pax) use the counter
+couples-to-counter rule). 55–60 (capacity 2,
+priority 2) is the THIRD zone: it opens only after the mains AND the
+counter are occupied. So when the mains are full a couple overflows to
+TWO ADJACENT counter stools (same column, consecutive numbers) first,
+and to a 55–60 two-seater last. Singles (1 pax) use the counter
 01–16 (capacity 1) first, then a 55–60 two-seater — NEVER a main-zone
 table (owner: keeps the pax cycle healthy), and a blocked single reserves
 only the 'counter' class so it cannot freeze the groups queued behind it. > 6 pax → greedy

@@ -183,11 +183,16 @@ class QueStore {
     }
 
     if (pax <= this.floorMaxFit()) {
-      if (!blocked.has('floor') && fit.length) return { tables: [fit[0].id], split: false };
+      // Zone order (owner): 1) mandatory 6-tops 20-54, 2) counter stools
+      // (adjacent pair for a couple), 3) the 55-60 two-seaters last.
+      const mains = fit.filter(t => (t.priority || 1) === 1);
+      if (!blocked.has('floor') && mains.length) return { tables: [mains[0].id], split: false };
       if (pax === 2 && !blocked.has('counter')) {
         const pair = this.counterPair(counter);
         if (pair) return { tables: pair, split: false };
       }
+      const zone3 = fit.filter(t => (t.priority || 1) > 1);
+      if (!blocked.has('floor') && zone3.length) return { tables: [zone3[0].id], split: false };
       return null;
     }
 
