@@ -158,8 +158,10 @@ class QueStore {
     const free = this.freeTables();
     const num = id => parseInt(id, 10);
     const counter = free.filter(t => t.zone === 'counter');
+    // Smallest fitting table first (a couple takes a 2-seater before a
+    // 6-top, whatever its zone), then the owner's zone priority.
     const floor = free.filter(t => t.zone !== 'counter').sort((a, b) =>
-      (a.priority || 1) - (b.priority || 1) || a.capacity - b.capacity || num(a.id) - num(b.id));
+      a.capacity - b.capacity || (a.priority || 1) - (b.priority || 1) || num(a.id) - num(b.id));
 
     if (pax <= 2 && !blocked.has('counter')) {
       if (pax === 1 && counter.length) {
@@ -175,9 +177,10 @@ class QueStore {
     if (pax <= this.floorMaxFit()) {
       for (const t of floor) {
         if (pax > (t.max_pax || t.capacity)) continue;
-        // 1-2 pax overflow to a floor table only while more than
-        // `upsizeReserve` floor tables stay free for bigger groups.
-        if (pax <= 2 && floor.length <= this.upsizeReserve) break;
+        // 1-2 pax take a BIG table only while more than `upsizeReserve` big
+        // floor tables stay free for groups; right-sized tables are free game.
+        if (pax <= 2 && t.capacity >= 4 &&
+            floor.filter(x => x.capacity >= 4).length <= this.upsizeReserve) continue;
         return { tables: [t.id], split: false };
       }
       return null;

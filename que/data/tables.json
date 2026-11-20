@@ -1,6 +1,6 @@
 {
  "store": "Edo Sushi",
- "note": "Owner rules 2026-11-05: priority 1 (20-45) fills first, priority 2 (46-60) after; floor 4-seaters hold up to max_pax 6; counter 01-16 is for 1-2 pax (couples take two adjacent stools). capacity/x/y editable; id must match ms_table.tableName.",
+ "note": "Owner capacities 2026-11-20: counter 01-16 = 1 pax; tables 20-54 = 6 pax; 55-60 = 2 pax. Priority 1 (20-45) fills before priority 2 (46-60); couples prefer counter pair, then a 2-seater, then a 6-top. capacity/x/y editable; id must match ms_table.tableName.",
  "view": {
   "w": 1000,
   "h": 700
@@ -168,7 +168,7 @@
   },
   {
    "id": "20",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 702,
    "y": 40,
@@ -179,7 +179,7 @@
   },
   {
    "id": "21",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 702,
    "y": 126,
@@ -190,7 +190,7 @@
   },
   {
    "id": "22",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 702,
    "y": 212,
@@ -201,7 +201,7 @@
   },
   {
    "id": "23",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 702,
    "y": 298,
@@ -212,7 +212,7 @@
   },
   {
    "id": "24",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 702,
    "y": 384,
@@ -223,7 +223,7 @@
   },
   {
    "id": "25",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 630,
    "y": 212,
@@ -234,7 +234,7 @@
   },
   {
    "id": "26",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 630,
    "y": 298,
@@ -245,7 +245,7 @@
   },
   {
    "id": "27",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 630,
    "y": 470,
@@ -256,7 +256,7 @@
   },
   {
    "id": "30",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 180,
@@ -267,7 +267,7 @@
   },
   {
    "id": "31",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 266,
@@ -278,7 +278,7 @@
   },
   {
    "id": "32",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 352,
@@ -289,7 +289,7 @@
   },
   {
    "id": "33",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 438,
@@ -300,7 +300,7 @@
   },
   {
    "id": "34",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 524,
@@ -311,7 +311,7 @@
   },
   {
    "id": "35",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 512,
    "y": 610,
@@ -322,7 +322,7 @@
   },
   {
    "id": "40",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 180,
@@ -333,7 +333,7 @@
   },
   {
    "id": "41",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 266,
@@ -344,7 +344,7 @@
   },
   {
    "id": "42",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 352,
@@ -355,7 +355,7 @@
   },
   {
    "id": "43",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 438,
@@ -366,7 +366,7 @@
   },
   {
    "id": "44",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 524,
@@ -377,7 +377,7 @@
   },
   {
    "id": "45",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 440,
    "y": 610,
@@ -388,7 +388,7 @@
   },
   {
    "id": "46",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 322,
    "y": 180,
@@ -399,7 +399,7 @@
   },
   {
    "id": "47",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 322,
    "y": 266,
@@ -410,7 +410,7 @@
   },
   {
    "id": "48",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 322,
    "y": 438,
@@ -421,7 +421,7 @@
   },
   {
    "id": "49",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 322,
    "y": 524,
@@ -432,7 +432,7 @@
   },
   {
    "id": "50",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 250,
    "y": 180,
@@ -443,7 +443,7 @@
   },
   {
    "id": "51",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 250,
    "y": 266,
@@ -454,7 +454,7 @@
   },
   {
    "id": "52",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 250,
    "y": 352,
@@ -465,7 +465,7 @@
   },
   {
    "id": "53",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 250,
    "y": 438,
@@ -476,7 +476,7 @@
   },
   {
    "id": "54",
-   "capacity": 4,
+   "capacity": 6,
    "zone": "floor",
    "x": 250,
    "y": 524,
@@ -487,68 +487,68 @@
   },
   {
    "id": "55",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 132,
    "y": 180,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   },
   {
    "id": "56",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 132,
    "y": 266,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   },
   {
    "id": "57",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 132,
    "y": 352,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   },
   {
    "id": "58",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 60,
    "y": 180,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   },
   {
    "id": "59",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 60,
    "y": 266,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   },
   {
    "id": "60",
-   "capacity": 4,
+   "capacity": 2,
    "zone": "floor",
    "x": 60,
    "y": 352,
    "w": 62,
    "h": 66,
-   "max_pax": 6,
+   "max_pax": 2,
    "priority": 2
   }
  ]

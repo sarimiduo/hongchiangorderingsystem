@@ -177,6 +177,24 @@ test('unknown scans and finished tickets are rejected', () => {
   assert.strictEqual(store.scan(a.token).result, 'expired');
 });
 
+test('couple prefers a 2-seater over a priority-1 6-top when the counter is full', () => {
+  // Real-floor shape: counter full, zone-1 6-tops free, zone-2 2-seaters free.
+  const inv = [
+    { id: '01', capacity: 1, zone: 'counter', x: 900 },
+    { id: '20', capacity: 6, max_pax: 6, priority: 1 },
+    { id: '21', capacity: 6, max_pax: 6, priority: 1 },
+    { id: '55', capacity: 2, max_pax: 2, priority: 2 },
+  ];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'que-'));
+  const store = new QueStore({ file: path.join(dir, 's.json'), tables: inv });
+  store.admin('table-busy', '01');
+  const duo = store.register({ pax: 2 });
+  const five = store.register({ pax: 5 });
+  store.tick();
+  assert.deepStrictEqual(store.ticket(duo.token).table_ids, ['55']); // not the 6-top
+  assert.deepStrictEqual(store.ticket(five.token).table_ids, ['20']); // zone 1 first
+});
+
 test('normalizeWa converts Indonesian local format', () => {
   assert.strictEqual(normalizeWa('0812-345-678'), '62812345678');
   assert.strictEqual(normalizeWa('+62 812 345 678'), '62812345678');
