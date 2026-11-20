@@ -342,8 +342,9 @@ has space (couples included; the owner corrected the earlier
 couples-to-counter rule). When the mains are full, a couple overflows to a
 55–60 two-seater (capacity 2, priority 2), then to TWO ADJACENT counter
 stools (same column, consecutive numbers). Singles (1 pax) use the counter
-01–16 (capacity 1) first, then a 2-seater; a big (cap ≥ 4) table only
-while more than upsizeReserve(=1) big tables stay free. > 6 pax → greedy
+01–16 (capacity 1) first, then a 55–60 two-seater — NEVER a main-zone
+table (owner: keeps the pax cycle healthy), and a blocked single reserves
+only the 'counter' class so it cannot freeze the groups queued behind it. > 6 pax → greedy
 split across floor tables (mandatory zone first, counter never) +
 bilingual apology (printed + tablet, register.html threshold pax > 6); a
 blocked party reserves its seating class ('counter'/'floor', needClasses)

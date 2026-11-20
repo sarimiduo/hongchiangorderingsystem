@@ -133,8 +133,13 @@ class QueStore {
     return Math.max(...pool.map(t => t.max_pax || t.capacity));
   }
 
-  /** Which seating resources a party needs (for the starvation guard). */
-  needClasses(pax) { return pax <= 2 ? ['counter', 'floor'] : ['floor']; }
+  /** Which seating resources a party needs (for the starvation guard).
+   * A single blocks only the counter: it never uses main-zone tables, so a
+   * waiting single must not freeze the groups queued behind it. */
+  needClasses(pax) {
+    if (pax === 1) return ['counter'];
+    return pax === 2 ? ['counter', 'floor'] : ['floor'];
+  }
 
   /** Two adjacent free counter stools (same column, consecutive numbers). */
   counterPair(counterFree) {
@@ -168,12 +173,11 @@ class QueStore {
         const seat = counter.slice().sort((a, b) => num(a.id) - num(b.id))[0];
         return { tables: [seat.id], split: false };
       }
+      // Owner rule: a single NEVER takes a main-zone table (keeps the pax
+      // cycle healthy) - at most a 2-seater when every stool is taken.
       if (!blocked.has('floor')) {
-        for (const t of fit) {
-          // a single takes a big table only while big tables are plentiful
-          if (t.capacity >= 4 && fit.filter(x => x.capacity >= 4).length <= this.upsizeReserve) continue;
-          return { tables: [t.id], split: false };
-        }
+        const small = fit.find(t => t.capacity <= 2);
+        if (small) return { tables: [small.id], split: false };
       }
       return null;
     }

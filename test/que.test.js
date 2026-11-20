@@ -194,6 +194,18 @@ test('couple: mandatory 6-top while free, then the 55-60 two-seater, then counte
   assert.deepStrictEqual(store.ticket(c.token).table_ids, ['01', '02']);  // then the counter pair
 });
 
+test('a single never takes a main-zone table, and does not block the groups behind', () => {
+  const { store } = mkStore();
+  for (const id of ['01', '02', '03']) store.admin('table-busy', id); // counter full
+  const solo = store.register({ pax: 1 });
+  const four = store.register({ pax: 4 });
+  store.tick();
+  // mains are free, but the single waits rather than take a 6-top...
+  assert.strictEqual(store.ticket(solo.token).state, 'waiting');
+  // ...and the group behind is seated normally (no floor freeze)
+  assert.deepStrictEqual(store.ticket(four.token).table_ids, ['20']);
+});
+
 test('normalizeWa converts Indonesian local format', () => {
   assert.strictEqual(normalizeWa('0812-345-678'), '62812345678');
   assert.strictEqual(normalizeWa('+62 812 345 678'), '62812345678');
